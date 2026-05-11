@@ -9,8 +9,9 @@ import org.spongepowered.asm.mixin.Overwrite;
 @Mixin(value = ExtensionsKt.class, remap = false)
 public class MixinExtensionsKt {
 
+    @SuppressWarnings({"OverwriteAuthorRequired", "FinalStaticMethod"})
     @Overwrite
-    public static boolean isAvailable(Cosmetic cosmetic, ObservedInstant now) {
+    public static final boolean isAvailable(Cosmetic cosmetic, ObservedInstant now) {
         return true;
     }
 }

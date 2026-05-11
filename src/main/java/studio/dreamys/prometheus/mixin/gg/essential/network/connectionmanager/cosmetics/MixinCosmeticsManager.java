@@ -11,12 +11,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import studio.dreamys.prometheus.serial.EssentialCosmeticsList;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import studio.dreamys.prometheus.serial.EssentialCosmeticsManager;
 
 @Mixin(value = CosmeticsManager.class, remap = false)
 public abstract class MixinCosmeticsManager {
@@ -37,7 +32,7 @@ public abstract class MixinCosmeticsManager {
 
         if (!requested) {
             requested = true;
-            connectionManager.send(new ClientCosmeticRequestPacket(EssentialCosmeticsList.legacyCosmetics, null));
+            connectionManager.send(new ClientCosmeticRequestPacket(EssentialCosmeticsManager.getLegacyCosmetics(), null));
         }
     }
 }

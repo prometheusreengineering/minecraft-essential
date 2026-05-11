@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
-import studio.dreamys.prometheus.serial.EssentialCosmeticsList;
+import studio.dreamys.prometheus.serial.EssentialCosmeticsManager;
 
 import java.io.BufferedWriter;
 import java.nio.file.Files;
@@ -56,6 +56,6 @@ public class MixinServerCosmeticsPopulatePacketHandler {
         } catch (Exception e) {
             logger.log(Level.SEVERE, String.format("Failed to save cosmetic %s", cosmetic.getId()), e);
         }
-        EssentialCosmeticsList.addCosmetic(cosmetic.getId());
+        EssentialCosmeticsManager.addCosmetic(cosmetic.getId());
     }
 }
