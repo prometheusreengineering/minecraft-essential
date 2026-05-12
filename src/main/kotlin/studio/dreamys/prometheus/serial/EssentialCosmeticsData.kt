@@ -3,9 +3,10 @@ package studio.dreamys.prometheus.serial
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+@JvmInline
 @Serializable
-internal data class EssentialCosmeticsData(
+internal value class EssentialCosmeticsData(
     @SerialName("legacy")
-    internal var legacyCosmetics: Set<String> = mutableSetOf()
+    internal val legacyCosmetics: MutableSet<String> = mutableSetOf()
 ) {
 }
