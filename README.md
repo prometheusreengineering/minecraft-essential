@@ -1,5 +1,5 @@
 # essential
-The prometheus' patch for Essential Mod.
+The Prometheus' patch for Essential Mod.
 
 ![Compatibility: Infinite](https://img.shields.io/badge/COMPATIBILITY-<=1.12_>=1.18-0?style=for-the-badge)
 [![Download Count](https://img.shields.io/github/downloads/prometheusreengineering/essential/total?style=for-the-badge)](https://github.com/prometheusreengineering/essential/releases/)
@@ -7,7 +7,7 @@ The prometheus' patch for Essential Mod.
 
 ## Features
 - Unlocks ALL cosmetics and emotes.
-- Dumps ALL cosmetics and emotes data into `.minecraft/prometheus/dumps/essential/`.
+- Dumps ALL cosmetics and emotes data into `.minecraft/prometheus/essential/dumps`.
 - Lightweight and non-invasive.
 - Compatible with *almost* all versions of Essential Mod.
 

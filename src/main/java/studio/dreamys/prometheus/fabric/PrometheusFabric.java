@@ -4,6 +4,7 @@ import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
 import org.spongepowered.asm.launch.MixinBootstrap;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.Mixins;
+import studio.dreamys.prometheus.serial.EssentialCosmeticsData;
 import studio.dreamys.prometheus.serial.EssentialCosmeticsManager;
 
 import java.lang.reflect.Field;
