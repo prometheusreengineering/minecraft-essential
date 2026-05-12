@@ -11,14 +11,13 @@ enum class OS {
         val current: OS
         init {
             val osName = System.getProperty("os.name").lowercase(getDefault())
-            current = if (listOf("nix", "sunos", "solaris", "bsd").any {it in osName}) {
+            current = if (listOf("linux", "nix", "sunos", "solaris", "bsd").any {it in osName}) {
                 Linux
             } else if ("windows" in osName) {
                 Windows
             } else {
                 MacOS
             }
-
         }
         @JvmStatic
         fun isOnWindows(): Boolean {

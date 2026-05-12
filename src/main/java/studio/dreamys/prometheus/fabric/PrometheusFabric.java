@@ -28,7 +28,7 @@ public class PrometheusFabric implements PreLaunchEntrypoint {
         }
     }
 
-    //https://github.com/EssentialGG/EssentialLoader/blob/master/stage2/fabric/src/main/java/gg/essential/loader/stage2/EssentialLoader.java#L180
+    // https://github.com/EssentialGG/EssentialLoader/blob/master/stage2/fabric/src/main/java/gg/essential/loader/stage2/EssentialLoader.java#L180
     public static void chainLoadMixins() throws ReflectiveOperationException {
         if (Mixins.getUnvisitedCount() != 0) {
             logger.warning(String.format("Mixins.getUnvisitedCount() = %s", Mixins.getUnvisitedCount()));

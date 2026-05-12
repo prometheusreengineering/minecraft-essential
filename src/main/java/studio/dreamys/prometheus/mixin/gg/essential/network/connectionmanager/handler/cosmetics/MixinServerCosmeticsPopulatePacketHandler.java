@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
+import studio.dreamys.prometheus.serial.EssentialCosmeticsData;
 import studio.dreamys.prometheus.serial.EssentialCosmeticsManager;
 
 import java.io.BufferedWriter;
@@ -37,8 +38,7 @@ public class MixinServerCosmeticsPopulatePacketHandler {
     public void onHandle(ConnectionManager connectionManager, ServerCosmeticsPopulatePacket packet, CallbackInfo ci, CosmeticsManager cosmeticsManager, Iterator var4, Cosmetic cosmetic) {
         try {
             logger.fine(String.format("Saving cosmetic %s\n%s", cosmetic.getId(), gson.toJson(cosmetic)));
-            String directoryPath = "prometheus/dumps/essential/" + cosmetic.getType();
-            Path directory = Paths.get(directoryPath);
+            Path directory = EssentialCosmeticsManager.DUMPS_PATH.resolve(cosmetic.getType());
             if (!Files.exists(directory)) {
                 Files.createDirectories(directory);
             }

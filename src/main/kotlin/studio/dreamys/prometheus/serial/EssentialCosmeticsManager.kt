@@ -13,48 +13,59 @@ object EssentialCosmeticsManager {
     private val logger: Logger = Logger.getLogger("Prometheus")
     private val cosmeticsData: EssentialCosmeticsData
 
+    /** Global folder for all Prometheus patches */
+    private val PROMETHEUS_FOLDER = Path("prometheus") // global folder for all patched mods/clients
+    /** Essential's specific folder. Use this. */
     @JvmField
-    val PROMETHEUS_FOLDER = Path("prometheus", "essential")
-    private val PROMETHEUS_GLOBAL_FOLDER = when (OS.current) {
-        OS.Windows -> PROMETHEUS_FOLDER // No global folder on Windows because of the lack of true symlinks
-        OS.Linux -> Path(System.getenv("XDG_DATA_HOME"), "prometheus", "essential")
+    val PROMETHEUS_ESSENTIAL_FOLDER = when (OS.current) {
+        OS.Windows -> Path(PROMETHEUS_FOLDER.absolutePathString(), "essential") // No global folder on Windows because of the lack of true symlinks
+        OS.Linux -> Path(System.getenv("XDG_DATA_HOME") ?:
+            Path(System.getProperty("user.home"), ".local", "share").absolutePathString(),
+            "prometheus", "essential")
         OS.MacOS -> Path(System.getProperty("user.home"), "Library", "Application Support", "prometheus", "essential");
     }
 
     @JvmField
-    val DUMPS_PATH = Path(PROMETHEUS_FOLDER.absolutePathString(), "dumps")
+    val DUMPS_PATH = Path(PROMETHEUS_ESSENTIAL_FOLDER.absolutePathString(), "dumps")
 
     @JvmField
-    val COSMETICS_FILE = File(PROMETHEUS_FOLDER.toFile(), "cosmetics.json")
-
-    private fun loadCosmeticsFile() {
-        if (!COSMETICS_FILE.exists()) {
-            val bundledCosmeticsFile = this::class.java.classLoader.getResourceAsStream("cosmetics.json") ?: return
-            bundledCosmeticsFile.copyTo(FileOutputStream(COSMETICS_FILE))
-        }
-    }
+    val COSMETICS_FILE = File(PROMETHEUS_ESSENTIAL_FOLDER.toFile(), "cosmetics.json")
 
     private fun tryCreateSymlinks() {
-        if (PROMETHEUS_FOLDER.exists()) { // TODO: Migrate folder?
+        if (PROMETHEUS_FOLDER.exists()) {
             return
         } else if (OS.isOnWindows()) { // Windows doesn't support Symlinks
             logger.info("Windows machine, skipping symlinks!")
-            PROMETHEUS_FOLDER.createDirectories()
+            PROMETHEUS_ESSENTIAL_FOLDER.createDirectories() // this is the local folder
             return
         }
-        if (!PROMETHEUS_GLOBAL_FOLDER.exists()) {
-            PROMETHEUS_GLOBAL_FOLDER.createDirectories()
+        if (!PROMETHEUS_ESSENTIAL_FOLDER.exists()) {
+            PROMETHEUS_ESSENTIAL_FOLDER.createDirectories()
         }
-        PROMETHEUS_FOLDER.createSymbolicLinkPointingTo(PROMETHEUS_GLOBAL_FOLDER)
+        PROMETHEUS_FOLDER.createSymbolicLinkPointingTo(PROMETHEUS_ESSENTIAL_FOLDER.parent)
     }
 
     init {
         tryCreateSymlinks()
         if (!DUMPS_PATH.exists()) {
             DUMPS_PATH.createDirectories()
+            // migration
+            val oldDumpsFolder = PROMETHEUS_FOLDER.resolve("dumps").resolve("essential").normalize()
+            if (oldDumpsFolder.exists()) {
+                oldDumpsFolder.listDirectoryEntries().forEach { file ->
+                    file.toFile().copyRecursively(DUMPS_PATH.resolve(file.fileName.toString()).toFile(), overwrite = true)
+                }
+                oldDumpsFolder.toFile().deleteRecursively()
+                if (oldDumpsFolder.parent!!.toFile().listFiles()?.isEmpty() ?: true) {
+                    oldDumpsFolder.parent.deleteExisting()
+                }
+            }
         }
-        loadCosmeticsFile()
+        if (!COSMETICS_FILE.exists()) {
+            this::class.java.classLoader.getResourceAsStream("cosmetics.json")?.copyTo(FileOutputStream(COSMETICS_FILE))
+        }
         cosmeticsData = Json.decodeFromString(COSMETICS_FILE.readText())
+        logger.info("Loaded cosmetics!")
     }
 
     @JvmStatic
@@ -62,15 +73,14 @@ object EssentialCosmeticsManager {
        thread {
            val body: String
            try {
-               // CHANGE ME BEFORE MERGING
-               val inputStream = URI("https://github.com/prometheusreengineering/minecraft-essential/raw/refs/heads/feat/legacy-list/src/main/resources/cosmetics.json").toURL().openStream()
+               val inputStream = URI("https://github.com/prometheusreengineering/minecraft-essential/raw/refs/heads/main/src/main/resources/cosmetics.json").toURL().openStream()
                body = inputStream.reader().readText()
+               PROMETHEUS_ESSENTIAL_FOLDER.resolve("temp.json").toFile().writeText(body)
            } catch (_: Exception) {
                logger.warning("Failed to download new cosmetics!")
                return@thread
            }
            try {
-               logger.info("Body text: \n$body")
                var count = 0
                Json.decodeFromString<EssentialCosmeticsData>(body).legacyCosmetics.forEach { id ->
                    if (addCosmetic(id, false)) count++
@@ -78,7 +88,7 @@ object EssentialCosmeticsManager {
                saveCosmetics()
                logger.info("Merged $count cosmetics!")
            } catch (e: Exception) {
-               logger.warning("Failed to download new cosmetics!")
+               logger.warning("Failed to merge new cosmetics!")
                e.printStackTrace()
            }
        }
@@ -95,8 +105,8 @@ object EssentialCosmeticsManager {
     }
 
     @JvmStatic
-    fun getLegacyCosmetics()
-        = cosmeticsData.legacyCosmetics
+    val legacyCosmetics
+        get() = cosmeticsData.legacyCosmetics
 
     private fun saveCosmetics() {
         COSMETICS_FILE.writeText(Json.encodeToString(cosmeticsData))
