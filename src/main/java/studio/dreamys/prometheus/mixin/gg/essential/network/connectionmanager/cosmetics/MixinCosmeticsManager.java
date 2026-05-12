@@ -15,7 +15,6 @@ import studio.dreamys.prometheus.serial.EssentialCosmeticsManager;
 
 @Mixin(value = CosmeticsManager.class, remap = false)
 public abstract class MixinCosmeticsManager {
-
     @Shadow
     public abstract void unlockAllCosmetics();
 
