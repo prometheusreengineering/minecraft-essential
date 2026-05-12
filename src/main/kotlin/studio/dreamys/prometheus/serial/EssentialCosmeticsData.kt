@@ -7,5 +7,5 @@ import kotlinx.serialization.Serializable
 internal value class EssentialCosmeticsData(
     internal val legacyCosmetics: MutableSet<String> = mutableSetOf()
 ) {
-    /* This is an @JvmInline class so it serializes to `["a", "b", "c"]` */
+    /* This is a value class so it serializes to the Set's `["a", "b", "c"]` */
 }

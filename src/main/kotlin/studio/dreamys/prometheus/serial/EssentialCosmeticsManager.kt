@@ -22,7 +22,7 @@ object EssentialCosmeticsManager {
         OS.Linux -> Path(System.getenv("XDG_DATA_HOME") ?:
             Path(System.getProperty("user.home"), ".local", "share").absolutePathString(),
             "prometheus", "essential")
-        OS.MacOS -> Path(System.getProperty("user.home"), "Library", "Application Support", "prometheus", "essential");
+        OS.MacOS -> Path(System.getProperty("user.home"), "Library", "Application Support", "prometheus", "essential")
     }
 
     @JvmField
@@ -58,6 +58,11 @@ object EssentialCosmeticsManager {
                 oldDumpsFolder.toFile().deleteRecursively()
                 if (oldDumpsFolder.parent!!.toFile().listFiles()?.isEmpty() ?: true) {
                     oldDumpsFolder.parent.deleteExisting()
+                }
+                // If the *local* folder is empty now we can delete it and point it to the global one
+                if (PROMETHEUS_FOLDER.toFile().listFiles()?.isEmpty() ?: true) {
+                    PROMETHEUS_FOLDER.deleteExisting()
+                    tryCreateSymlinks()
                 }
             }
         }
@@ -98,10 +103,10 @@ object EssentialCosmeticsManager {
     fun addCosmetic(id: String)
         = addCosmetic(id, true)
     private fun addCosmetic(id: String, save: Boolean): Boolean {
-        if (id in cosmeticsData.legacyCosmetics) return false;
+        if (id in cosmeticsData.legacyCosmetics) return false
         cosmeticsData.legacyCosmetics += id
         if (save) saveCosmetics()
-        return true;
+        return true
     }
 
     @JvmStatic
