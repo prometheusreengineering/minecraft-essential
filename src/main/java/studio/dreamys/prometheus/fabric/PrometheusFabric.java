@@ -4,8 +4,6 @@ import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
 import org.spongepowered.asm.launch.MixinBootstrap;
 import org.spongepowered.asm.mixin.MixinEnvironment;
 import org.spongepowered.asm.mixin.Mixins;
-import studio.dreamys.prometheus.serial.EssentialCosmeticsData;
-import studio.dreamys.prometheus.serial.EssentialCosmeticsManager;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -17,8 +15,6 @@ public class PrometheusFabric implements PreLaunchEntrypoint {
 
     @Override
     public void onPreLaunch() {
-        // Initialize our files *before* loading and patching Essential.
-        EssentialCosmeticsManager.downloadCosmeticsList();
         MixinBootstrap.init();
         Mixins.addConfiguration("prometheus.essential.mixins.json");
         try {
