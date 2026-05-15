@@ -34,7 +34,7 @@ object EssentialCosmeticsManager {
     private fun tryCreateSymlinks() {
         if (PROMETHEUS_FOLDER.exists()) {
             return
-        } else if (OS.isOnWindows()) { // Windows doesn't support Symlinks
+        } else if (OS.isOnWindows()) { // Windows doesn't support symlinks
             logger.info("Windows machine, skipping symlinks!")
             PROMETHEUS_ESSENTIAL_FOLDER.createDirectories() // this is the local folder
             return
@@ -80,7 +80,6 @@ object EssentialCosmeticsManager {
            try {
                val inputStream = URI("https://github.com/prometheusreengineering/minecraft-essential/raw/refs/heads/main/src/main/resources/cosmetics.json").toURL().openStream()
                body = inputStream.reader().readText()
-               PROMETHEUS_ESSENTIAL_FOLDER.resolve("temp.json").toFile().writeText(body)
            } catch (_: Exception) {
                logger.warning("Failed to download new cosmetics!")
                return@thread
