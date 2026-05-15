@@ -1,4 +1,4 @@
-package studio.dreamys.prometheus.mixin.gg.essential.cosmetics;
+package studio.dreamys.prometheus.essential.mixin.gg.essential.cosmetics;
 
 import gg.essential.cosmetics.ExtensionsKt;
 import gg.essential.gui.elementa.state.v2.ObservedInstant;

@@ -1,7 +1,7 @@
-package studio.dreamys.prometheus.serial
+package studio.dreamys.prometheus.essential.serial
 
 import kotlinx.serialization.json.Json
-import studio.dreamys.prometheus.util.OS
+import studio.dreamys.prometheus.essential.util.OS
 import java.io.File
 import java.io.FileOutputStream
 import java.net.URI
@@ -17,7 +17,7 @@ object EssentialCosmeticsManager {
     private val PROMETHEUS_FOLDER = Path("prometheus") // global folder for all patched mods/clients
     /** Essential's specific folder. Use this. */
     @JvmField
-    val PROMETHEUS_ESSENTIAL_FOLDER = when (OS.current) {
+    val PROMETHEUS_ESSENTIAL_FOLDER = when (OS.getCurrent()) {
         OS.Windows -> Path(PROMETHEUS_FOLDER.absolutePathString(), "essential") // No global folder on Windows because of the lack of true symlinks
         OS.Linux -> Path(System.getenv("XDG_DATA_HOME") ?:
             Path(System.getProperty("user.home"), ".local", "share").absolutePathString(),
@@ -59,7 +59,7 @@ object EssentialCosmeticsManager {
                 if (oldDumpsFolder.parent!!.toFile().listFiles()?.isEmpty() ?: true) {
                     oldDumpsFolder.parent.deleteExisting()
                 }
-                // If the *local* folder is empty now we can delete it and point it to the global one
+                // If the *local* folder is empty we can delete it and point it to the global one
                 if (PROMETHEUS_FOLDER.toFile().listFiles()?.isEmpty() ?: true) {
                     PROMETHEUS_FOLDER.deleteExisting()
                     tryCreateSymlinks()
@@ -75,15 +75,12 @@ object EssentialCosmeticsManager {
 
     @JvmStatic
     fun downloadCosmeticsList() {
-       thread {
-           val body: String
-           try {
-               val inputStream = URI("https://github.com/prometheusreengineering/minecraft-essential/raw/refs/heads/main/src/main/resources/cosmetics.json").toURL().openStream()
-               body = inputStream.reader().readText()
-           } catch (_: Exception) {
-               logger.warning("Failed to download new cosmetics!")
-               return@thread
-           }
+       val t = thread {
+           val body: String = URI("https://github.com/prometheusreengineering/minecraft-essential/raw/refs/heads/main/src/main/resources/cosmetics.json")
+               .toURL()
+               .openStream()
+               .reader()
+               .use { it.readText() } // this closes the stream
            try {
                var count = 0
                Json.decodeFromString<EssentialCosmeticsData>(body).legacyCosmetics.forEach { id ->
@@ -108,9 +105,8 @@ object EssentialCosmeticsManager {
         return true
     }
 
-    @JvmStatic
-    val legacyCosmetics
-        get() = cosmeticsData.legacyCosmetics
+    @JvmField
+    val legacyCosmetics = cosmeticsData.legacyCosmetics
 
     private fun saveCosmetics() {
         COSMETICS_FILE.writeText(Json.encodeToString(cosmeticsData))

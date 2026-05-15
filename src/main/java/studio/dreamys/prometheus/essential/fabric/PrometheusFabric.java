@@ -1,4 +1,4 @@
-package studio.dreamys.prometheus.fabric;
+package studio.dreamys.prometheus.essential.fabric;
 
 import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
 import org.spongepowered.asm.launch.MixinBootstrap;
