@@ -1,4 +1,4 @@
-package studio.dreamys.prometheus.serial
+package studio.dreamys.prometheus.essential.serial
 
 import kotlinx.serialization.Serializable
 

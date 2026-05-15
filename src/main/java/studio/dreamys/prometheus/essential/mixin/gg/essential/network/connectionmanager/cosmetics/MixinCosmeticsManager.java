@@ -1,4 +1,4 @@
-package studio.dreamys.prometheus.mixin.gg.essential.network.connectionmanager.cosmetics;
+package studio.dreamys.prometheus.essential.mixin.gg.essential.network.connectionmanager.cosmetics;
 
 import gg.essential.connectionmanager.common.packet.cosmetic.ClientCosmeticRequestPacket;
 import gg.essential.event.client.ClientTickEvent;
@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import studio.dreamys.prometheus.serial.EssentialCosmeticsManager;
+import studio.dreamys.prometheus.essential.serial.EssentialCosmeticsManager;
 
 @Mixin(value = CosmeticsManager.class, remap = false)
 public abstract class MixinCosmeticsManager {
@@ -31,7 +31,7 @@ public abstract class MixinCosmeticsManager {
 
         if (!requested) {
             requested = true;
-            connectionManager.send(new ClientCosmeticRequestPacket(EssentialCosmeticsManager.getLegacyCosmetics(), null));
+            connectionManager.send(new ClientCosmeticRequestPacket(EssentialCosmeticsManager.legacyCosmetics, null));
         }
     }
 }

@@ -82,22 +82,8 @@
         </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlinx</groupId>
-            <artifactId>kotlinx-serialization-core</artifactId>
-            <version>1.11.0</version>
-            <type>pom</type>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains.kotlinx</groupId>
             <artifactId>kotlinx-serialization-core-jvm</artifactId>
             <version>1.11.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jetbrains.kotlinx</groupId>
-            <artifactId>kotlinx-serialization-json</artifactId>
-            <version>1.11.0</version>
-            <type>pom</type>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -141,7 +127,6 @@
                         <configuration>
                             <sourceDirs>
                                 <sourceDir>src/main/java</sourceDir>
-                                <sourceDir>src/main/kotlin</sourceDir>
                             </sourceDirs>
                         </configuration>
                     </execution>

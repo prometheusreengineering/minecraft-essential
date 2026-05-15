@@ -18,7 +18,7 @@
     "icon": "assets/prometheus/icon.png",
     "entrypoints": {
         "preLaunch": [
-            "studio.dreamys.prometheus.fabric.PrometheusFabric"
+          "studio.dreamys.prometheus.essential.fabric.PrometheusFabric"
         ]
     },
     "depends": {

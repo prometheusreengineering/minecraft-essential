@@ -1,4 +1,4 @@
-package studio.dreamys.prometheus.mixin.gg.essential.network.connectionmanager.handler.cosmetics;
+package studio.dreamys.prometheus.essential.mixin.gg.essential.network.connectionmanager.handler.cosmetics;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -13,13 +13,11 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
-import studio.dreamys.prometheus.serial.EssentialCosmeticsData;
-import studio.dreamys.prometheus.serial.EssentialCosmeticsManager;
+import studio.dreamys.prometheus.essential.serial.EssentialCosmeticsManager;
 
 import java.io.BufferedWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.logging.Level;

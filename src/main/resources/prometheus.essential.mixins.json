@@ -1,6 +1,6 @@
 {
     "required": true,
-    "package": "studio.dreamys.prometheus.mixin",
+    "package": "studio.dreamys.prometheus.essential.mixin",
     "compatibilityLevel": "JAVA_8",
     "mixins": [
         "gg.essential.cosmetics.MixinExtensionsKt",
