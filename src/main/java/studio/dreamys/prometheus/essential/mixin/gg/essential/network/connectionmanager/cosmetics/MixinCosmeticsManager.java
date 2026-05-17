@@ -12,7 +12,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import studio.dreamys.prometheus.essential.serial.EssentialCosmeticsFileData;
-import studio.dreamys.prometheus.essential.serial.EssentialCosmeticsManager;
 
 @Mixin(value = CosmeticsManager.class, remap = false)
 public abstract class MixinCosmeticsManager {
