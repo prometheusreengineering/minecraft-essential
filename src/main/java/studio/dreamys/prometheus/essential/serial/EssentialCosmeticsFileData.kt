@@ -21,7 +21,12 @@ value class EssentialCosmeticsFileData internal constructor(
     companion object {
         private val logger = Logger.getLogger("Prometheus - ECFD")
         private val COSMETICS_FILE = File(PROMETHEUS_ESSENTIAL_FOLDER, "cosmetics.json")
-        private var current: EssentialCosmeticsFileData = Json.decodeFromString(COSMETICS_FILE.readText())
+        private var current: EssentialCosmeticsFileData = run {
+            if (!COSMETICS_FILE.exists()) {
+                this::class.java.classLoader.getResourceAsStream("cosmetics.json")?.copyTo(FileOutputStream(COSMETICS_FILE))
+            }
+            return@run Json.decodeFromString(COSMETICS_FILE.readText())
+        }
 
         // called by MixinServerCosmeticsPopulatePacketHandler
         @JvmStatic
@@ -49,13 +54,10 @@ value class EssentialCosmeticsFileData internal constructor(
         }
 
         /**
-         * Makes sure the cosmetic file exists, and also downloads and merges from GitHub in the background.
+         * Downloads and merges from GitHub in the background.
          * @see COSMETICS_FILE
          */
         fun downloadCosmeticsList() {
-            if (!COSMETICS_FILE.exists()) {
-                this::class.java.classLoader.getResourceAsStream("cosmetics.json")?.copyTo(FileOutputStream(COSMETICS_FILE))
-            }
             val t = thread {
                 val body: String = URI("https://github.com/prometheusreengineering/minecraft-essential/raw/refs/heads/main/src/main/resources/cosmetics.json")
                     .toURL()

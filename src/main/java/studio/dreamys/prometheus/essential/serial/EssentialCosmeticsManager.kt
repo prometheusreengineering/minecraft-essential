@@ -12,7 +12,7 @@ import kotlin.io.path.*
 
 object EssentialCosmeticsManager {
     private val logger: Logger = Logger.getLogger("Prometheus - ECM")
-    // Used for essential's serialization
+    // Used for Essential's serialization
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
 
     /** Global folder for all Prometheus patches */
