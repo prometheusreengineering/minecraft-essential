@@ -1,35 +1,36 @@
 package studio.dreamys.prometheus.essential.serial
 
-import kotlinx.serialization.json.Json
+import gg.essential.cosmetics.model.Cosmetic
+import gg.essential.lib.gson.Gson
+import gg.essential.lib.gson.GsonBuilder
+import studio.dreamys.prometheus.essential.ext.*
+import studio.dreamys.prometheus.essential.serial.EssentialCosmeticsFileData.Companion.addCosmetic
+import studio.dreamys.prometheus.essential.serial.EssentialCosmeticsFileData.Companion.downloadCosmeticsList
 import studio.dreamys.prometheus.essential.util.OS
-import java.io.File
-import java.io.FileOutputStream
-import java.net.URI
 import java.util.logging.Logger
-import kotlin.concurrent.thread
 import kotlin.io.path.*
 
 object EssentialCosmeticsManager {
-    private val logger: Logger = Logger.getLogger("Prometheus")
-    private val cosmeticsData: EssentialCosmeticsData
+    private val logger: Logger = Logger.getLogger("Prometheus - ECM")
+    // Used for essential's serialization
+    private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
 
     /** Global folder for all Prometheus patches */
     private val PROMETHEUS_FOLDER = Path("prometheus") // global folder for all patched mods/clients
     /** Essential's specific folder. Use this. */
-    @JvmField
     val PROMETHEUS_ESSENTIAL_FOLDER = when (OS.getCurrent()) {
-        OS.Windows -> Path(PROMETHEUS_FOLDER.absolutePathString(), "essential") // No global folder on Windows because of the lack of true symlinks
-        OS.Linux -> Path(System.getenv("XDG_DATA_HOME") ?:
-            Path(System.getProperty("user.home"), ".local", "share").absolutePathString(),
-            "prometheus", "essential")
+        OS.Windows -> Path(PROMETHEUS_FOLDER, "essential") // No global folder on Windows because of the lack of true symlinks
+        // $XDG_DATA_HOME/prometheus/essential (~.local/share/prometheus/essential)
+        OS.Linux -> run {
+            @Suppress("LocalVariableName") // named for the variable
+            val XDG_DATA_HOME = System.getenv("XDG_DATA_HOME") ?:
+                                Path(System.getProperty("user.home"), ".local", "share").absolutePathString() // String conversion needed here because System.getenv() returns a String
+            return@run Path(XDG_DATA_HOME,"prometheus", "essential")
+        }
         OS.MacOS -> Path(System.getProperty("user.home"), "Library", "Application Support", "prometheus", "essential")
     }
 
-    @JvmField
-    val DUMPS_PATH = Path(PROMETHEUS_ESSENTIAL_FOLDER.absolutePathString(), "dumps")
-
-    @JvmField
-    val COSMETICS_FILE = File(PROMETHEUS_ESSENTIAL_FOLDER.toFile(), "cosmetics.json")
+    val DUMPS_PATH = Path(PROMETHEUS_ESSENTIAL_FOLDER, "dumps")
 
     private fun tryCreateSymlinks() {
         if (PROMETHEUS_FOLDER.exists()) {
@@ -45,15 +46,17 @@ object EssentialCosmeticsManager {
         PROMETHEUS_FOLDER.createSymbolicLinkPointingTo(PROMETHEUS_ESSENTIAL_FOLDER.parent)
     }
 
-    init {
+    // called by MixinBootstrap
+    @JvmStatic
+    fun setupFolderStructure() {
         tryCreateSymlinks()
         if (!DUMPS_PATH.exists()) {
             DUMPS_PATH.createDirectories()
             // migration
-            val oldDumpsFolder = PROMETHEUS_FOLDER.resolve("dumps").resolve("essential").normalize()
+            val oldDumpsFolder = PROMETHEUS_FOLDER.resolve("dumps", "essential").normalize()
             if (oldDumpsFolder.exists()) {
-                oldDumpsFolder.listDirectoryEntries().forEach { file ->
-                    file.toFile().copyRecursively(DUMPS_PATH.resolve(file.fileName.toString()).toFile(), overwrite = true)
+                oldDumpsFolder.listDirectoryEntries().forEach { folder ->
+                    folder.toFile().copyRecursively(DUMPS_PATH.resolve(folder.fileName.toString()).toFile(), overwrite = true)
                 }
                 oldDumpsFolder.toFile().deleteRecursively()
                 if (oldDumpsFolder.parent!!.toFile().listFiles()?.isEmpty() ?: true) {
@@ -66,49 +69,18 @@ object EssentialCosmeticsManager {
                 }
             }
         }
-        if (!COSMETICS_FILE.exists()) {
-            this::class.java.classLoader.getResourceAsStream("cosmetics.json")?.copyTo(FileOutputStream(COSMETICS_FILE))
-        }
-        cosmeticsData = Json.decodeFromString(COSMETICS_FILE.readText())
+        downloadCosmeticsList()
         logger.info("Loaded cosmetics!")
     }
 
+    // Called by MixinServerCosmeticsPopulatePacketHandler
     @JvmStatic
-    fun downloadCosmeticsList() {
-       val t = thread {
-           val body: String = URI("https://github.com/prometheusreengineering/minecraft-essential/raw/refs/heads/main/src/main/resources/cosmetics.json")
-               .toURL()
-               .openStream()
-               .reader()
-               .use { it.readText() } // this closes the stream
-           try {
-               var count = 0
-               Json.decodeFromString<EssentialCosmeticsData>(body).legacyCosmetics.forEach { id ->
-                   if (addCosmetic(id, false)) count++
-               }
-               saveCosmetics()
-               logger.info("Merged $count cosmetics!")
-           } catch (e: Exception) {
-               logger.warning("Failed to merge new cosmetics!")
-               e.printStackTrace()
-           }
-       }
-    }
-
-    @JvmStatic
-    fun addCosmetic(id: String)
-        = addCosmetic(id, true)
-    private fun addCosmetic(id: String, save: Boolean): Boolean {
-        if (id in cosmeticsData.legacyCosmetics) return false
-        cosmeticsData.legacyCosmetics += id
-        if (save) saveCosmetics()
-        return true
-    }
-
-    @JvmField
-    val legacyCosmetics = cosmeticsData.legacyCosmetics
-
-    private fun saveCosmetics() {
-        COSMETICS_FILE.writeText(Json.encodeToString(cosmeticsData))
+    fun addCosmetic(cosmetic: Cosmetic) {
+        val id = cosmetic.id
+        logger.info("Saving $id!")
+        addCosmetic(id)
+        // Dump cosmetic
+        File(DUMPS_PATH, cosmetic.type, "$id.json")
+            .writeText(gson.toJson(cosmetic))
     }
 }
