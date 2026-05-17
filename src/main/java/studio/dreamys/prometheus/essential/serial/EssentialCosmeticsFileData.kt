@@ -23,7 +23,7 @@ value class EssentialCosmeticsFileData internal constructor(
         private val COSMETICS_FILE = File(PROMETHEUS_ESSENTIAL_FOLDER, "cosmetics.json")
         private var current: EssentialCosmeticsFileData = run {
             if (!COSMETICS_FILE.exists()) {
-                this::class.java.classLoader.getResourceAsStream("cosmetics.json")?.copyTo(FileOutputStream(COSMETICS_FILE))
+                this::class.java.classLoader.getResourceAsStream("cosmetics.json")!!.copyTo(FileOutputStream(COSMETICS_FILE))
             }
             return@run Json.decodeFromString(COSMETICS_FILE.readText())
         }

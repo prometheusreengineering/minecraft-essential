@@ -77,7 +77,7 @@ object EssentialCosmeticsManager {
     @JvmStatic
     fun addCosmetic(cosmetic: Cosmetic) {
         val id = cosmetic.id
-        logger.info("Saving $id!")
+        logger.fine("Saving $id!")
         addCosmetic(id)
         // Dump cosmetic
         File(DUMPS_PATH, cosmetic.type, "$id.json")
