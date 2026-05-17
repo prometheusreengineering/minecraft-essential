@@ -125,6 +125,7 @@
                             <goal>compile</goal>
                         </goals>
                         <configuration>
+                            <args>-opt-in=kotlin.io.path.ExperimentalPathApi</args>
                             <sourceDirs>
                                 <sourceDir>src/main/java</sourceDir>
                             </sourceDirs>

@@ -3,6 +3,7 @@ package studio.dreamys.prometheus.essential.ext
 import java.nio.file.Path
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
+import kotlin.io.path.copyToRecursively
 
 // Constructor
 fun Path(base: Path, subpath: String): Path
@@ -18,3 +19,10 @@ fun Path.resolve(vararg subpath: String): Path {
     }
     return path
 }
+
+/**
+ * Unlike [copyToRecursively], this function will create all directories along the way.
+ * @see [kotlin.io.copyRecursively]
+ */
+fun Path.copyRecursively(target: Path, overwrite: Boolean = false)
+    = this.toFile().copyRecursively(target.toFile(), overwrite)
