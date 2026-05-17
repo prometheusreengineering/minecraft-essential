@@ -56,9 +56,9 @@ object EssentialCosmeticsManager {
             val oldDumpsFolder = PROMETHEUS_FOLDER.resolve("dumps", "essential").normalize()
             if (oldDumpsFolder.exists()) {
                 oldDumpsFolder.listDirectoryEntries().forEach { folder ->
-                    folder.toFile().copyRecursively(DUMPS_PATH.resolve(folder.fileName.toString()).toFile(), overwrite = true)
+                    folder.copyRecursively(DUMPS_PATH.resolve(folder.fileName), overwrite = true)
                 }
-                oldDumpsFolder.toFile().deleteRecursively()
+                oldDumpsFolder.deleteRecursively()
                 if (oldDumpsFolder.parent!!.toFile().listFiles()?.isEmpty() ?: true) {
                     oldDumpsFolder.parent.deleteExisting()
                 }
