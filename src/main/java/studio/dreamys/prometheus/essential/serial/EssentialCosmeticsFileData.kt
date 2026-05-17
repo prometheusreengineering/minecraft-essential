@@ -55,10 +55,9 @@ value class EssentialCosmeticsFileData internal constructor(
 
         /**
          * Downloads and merges from GitHub in the background.
-         * @see COSMETICS_FILE
          */
         fun downloadCosmeticsList() {
-            val t = thread {
+            thread {
                 val body: String = URI("https://github.com/prometheusreengineering/minecraft-essential/raw/refs/heads/main/src/main/resources/cosmetics.json")
                     .toURL()
                     .openStream()
