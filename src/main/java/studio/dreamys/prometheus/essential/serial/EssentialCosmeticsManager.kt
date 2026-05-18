@@ -18,17 +18,10 @@ object EssentialCosmeticsManager {
     /** Global folder for all Prometheus patches */
     private val PROMETHEUS_FOLDER = Path("prometheus") // global folder for all patched mods/clients
     /** Essential's specific folder. Use this. */
-    val PROMETHEUS_ESSENTIAL_FOLDER = when (OS.getCurrent()) {
-        OS.Windows -> Path(PROMETHEUS_FOLDER, "essential") // No global folder on Windows because of the lack of true symlinks
-        // $XDG_DATA_HOME/prometheus/essential (~.local/share/prometheus/essential)
-        OS.Linux -> run {
-            @Suppress("LocalVariableName") // named for the variable
-            val XDG_DATA_HOME = System.getenv("XDG_DATA_HOME") ?:
-                                Path(System.getProperty("user.home"), ".local", "share").absolutePathString() // String conversion needed here because System.getenv() returns a String
-            return@run Path(XDG_DATA_HOME,"prometheus", "essential")
-        }
-        OS.MacOS -> Path(System.getProperty("user.home"), "Library", "Application Support", "prometheus", "essential")
-    }
+    val PROMETHEUS_ESSENTIAL_FOLDER = OS.current
+        .configFolder
+        .resolve("prometheus", "essential")
+        .normalize()
 
     val DUMPS_PATH = Path(PROMETHEUS_ESSENTIAL_FOLDER, "dumps")
 
@@ -46,7 +39,7 @@ object EssentialCosmeticsManager {
         PROMETHEUS_FOLDER.createSymbolicLinkPointingTo(PROMETHEUS_ESSENTIAL_FOLDER.parent)
     }
 
-    // called by MixinBootstrap
+    // called by MixinEssential
     @JvmStatic
     fun setupFolderStructure() {
         tryCreateSymlinks()
@@ -55,7 +48,7 @@ object EssentialCosmeticsManager {
             // migration
             val oldDumpsFolder = PROMETHEUS_FOLDER.resolve("dumps", "essential").normalize()
             if (oldDumpsFolder.exists()) {
-                oldDumpsFolder.listDirectoryEntries().forEach { folder ->
+                for (folder in oldDumpsFolder.listDirectoryEntries()) {
                     folder.copyRecursively(DUMPS_PATH.resolve(folder.fileName), overwrite = true)
                 }
                 oldDumpsFolder.deleteRecursively()
