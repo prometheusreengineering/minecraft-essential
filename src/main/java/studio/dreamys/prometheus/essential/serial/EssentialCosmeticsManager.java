@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -25,11 +26,11 @@ public final class EssentialCosmeticsManager {
     // Used for Essential's serialization
     private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
-    /** Global folder for all Prometheus patches */
-    private static final Path PROMETHEUS_FOLDER = Paths.get("prometheus"); // global folder for all patched mods/clients
-    /** Essential's specific folder. Use this. */
+    /** Instance-specific folder for all prometheus patches. This sits inside .minecraft */
+    private static final Path PROMETHEUS_FOLDER = Paths.get("prometheus");
+    /** Essential's specific folder. On unix-like systems this is outside .minecraft.
+     * Use this. */
     public static final Path PROMETHEUS_ESSENTIAL_FOLDER = OS.getConfigFolder()
-            .resolve("prometheus")
             .resolve("essential")
             .normalize();
 
@@ -91,9 +92,10 @@ public final class EssentialCosmeticsManager {
         // Dump cosmetic
         File dump = new File(new File(DUMPS_PATH.toFile(), cosmetic.getType()), id + ".json");
         try {
+            Files.createDirectories(dump.toPath().getParent());
             Files.write(dump.toPath(), gson.toJson(cosmetic).getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            logger.log(Level.SEVERE, "Failed to dump cosmetic " + id, e);
         }
     }
 }

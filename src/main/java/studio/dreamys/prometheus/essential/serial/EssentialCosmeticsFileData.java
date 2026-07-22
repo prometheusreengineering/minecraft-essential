@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -38,6 +39,7 @@ public final class EssentialCosmeticsFileData {
     static {
         try {
             if (!COSMETICS_FILE.exists()) {
+                Files.createDirectories(COSMETICS_FILE.getParentFile().toPath());
                 try (InputStream in = EssentialCosmeticsFileData.class.getClassLoader()
                         .getResourceAsStream("cosmetics.json")) {
                     if (in == null) throw new IllegalStateException("Bundled cosmetics.json not found!");
@@ -82,7 +84,7 @@ public final class EssentialCosmeticsFileData {
             Files.write(COSMETICS_FILE.toPath(),
                     GSON.toJson(current.legacyCosmetics, SET_TYPE).getBytes(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            logger.log(Level.SEVERE, "Failed to save cosmetics list!", e);
         }
     }
 
@@ -90,7 +92,7 @@ public final class EssentialCosmeticsFileData {
      * Downloads and merges from GitHub in the background.
      */
     public static void downloadCosmeticsList() {
-        Thread thread = new Thread(() -> {
+        new Thread(() -> {
             try {
                 String body;
                 try (InputStream in = URI.create("https://github.com/prometheusreengineering/minecraft-essential/raw/refs/heads/main/src/main/resources/cosmetics.json")
@@ -101,11 +103,9 @@ public final class EssentialCosmeticsFileData {
                 addCosmetics(cosmetics);
                 logger.info("Merged " + cosmetics.length + " cosmetics!");
             } catch (Exception e) {
-                logger.warning("Failed to merge new cosmetics!");
-                e.printStackTrace();
+                logger.log(Level.WARNING, "Failed to merge new cosmetics!", e);
             }
-        });
-        thread.start();
+        }).start();
     }
 
     private static String readAll(InputStream in) throws IOException {
