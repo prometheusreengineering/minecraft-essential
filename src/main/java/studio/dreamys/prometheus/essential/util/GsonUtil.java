@@ -15,7 +15,7 @@ import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-public final class GsonUtil {
+public class GsonUtil {
     private GsonUtil() {}
     private static final Gson GSON = new Gson();
     private static final Type STRING_SET_TYPE = new TypeToken<LinkedHashSet<String>>() {}.getType();

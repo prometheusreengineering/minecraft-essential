@@ -25,7 +25,7 @@ import java.util.logging.Logger;
  * Backing store for the legacy cosmetics list. Serializes as the bare Set's
  * {@code ["a", "b", "c"]} array via Gson.
  */
-public final class EssentialCosmeticsFileData {
+public class EssentialCosmeticsFileData {
     private static final @NotNull Logger logger = Logger.getLogger("Prometheus - ECFD");
     private static final Gson GSON = new Gson();
     private static final Type SET_TYPE = new TypeToken<LinkedHashSet<String>>() {}.getType();
