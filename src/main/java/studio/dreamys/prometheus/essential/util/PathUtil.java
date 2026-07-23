@@ -28,14 +28,10 @@ public class PathUtil {
     @Contract(value = "null, _ -> param2", pure = true)
     // Passing null to env is the same as passing a non-existent key (and will return the fallback).
     public static Path fromEnvOr(@Nullable String env, @NotNull Path d) {
-        try {
-            String path = System.getenv(env);
-            // jump to the not found logic
-            if (path == null || path.isEmpty()) throw new NullPointerException();
-            return fromString(path);
-        } catch (NullPointerException e) {
-            return d;
-        }
+        if (env == null) return d;
+        String path = System.getenv(env);
+        if (path == null || path.isEmpty()) return d;
+        return fromString(path);
     }
 
     // mkdir -p $(dirname dst) && cp -r src dst

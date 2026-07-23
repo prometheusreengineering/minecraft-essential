@@ -1,15 +1,13 @@
 package studio.dreamys.prometheus.essential.serial;
 
 import gg.essential.cosmetics.model.Cosmetic;
-import gg.essential.lib.gson.Gson;
-import gg.essential.lib.gson.GsonBuilder;
 import org.jetbrains.annotations.NotNull;
+import studio.dreamys.prometheus.essential.util.GsonUtil;
 import studio.dreamys.prometheus.essential.util.OS;
 import studio.dreamys.prometheus.essential.util.PathUtil;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -23,8 +21,6 @@ public final class EssentialCosmeticsManager {
     private EssentialCosmeticsManager() {}
 
     private static final Logger logger = Logger.getLogger("Prometheus - ECM");
-    // Used for Essential's serialization
-    private static final Gson gson = new GsonBuilder().setPrettyPrinting().create();
 
     /** Instance-specific folder for all prometheus patches. This sits inside .minecraft */
     private static final Path PROMETHEUS_FOLDER = Paths.get("prometheus");
@@ -52,6 +48,9 @@ public final class EssentialCosmeticsManager {
 
     // called by MixinEssential
     public static void setupFolderStructure() {
+        logger.fine("Running on " + OS.getName() + "!");
+        logger.fine("PROMETHEUS_FOLDER = " + PROMETHEUS_FOLDER.toAbsolutePath());
+        logger.fine("DUMPS_PATH = " + DUMPS_PATH.toAbsolutePath());
         try {
             tryCreateSymlinks();
             if (!Files.exists(DUMPS_PATH)) {
@@ -84,7 +83,7 @@ public final class EssentialCosmeticsManager {
         logger.info("Loaded cosmetics!");
     }
 
-    // Called by MixinServerCosmeticsPopulatePacketHandler
+    // Called by MixinServerCosmeticsPopulatePacketHandler once for every cosmetic.
     public static void addCosmetic(@NotNull Cosmetic cosmetic) {
         String id = cosmetic.getId();
         logger.fine("Saving " + id + "!");
@@ -93,9 +92,15 @@ public final class EssentialCosmeticsManager {
         File dump = new File(new File(DUMPS_PATH.toFile(), cosmetic.getType()), id + ".json");
         try {
             Files.createDirectories(dump.toPath().getParent());
-            Files.write(dump.toPath(), gson.toJson(cosmetic).getBytes(StandardCharsets.UTF_8));
+            GsonUtil.writePretty(dump.toPath(), cosmetic, cosmetic.getClass());
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to dump cosmetic " + id, e);
         }
+    }
+
+    // Called by MixinServerCosmeticsPopulatePacketHandler after the populate loop completes.
+    public static void flushCosmetics() {
+        // TODO: only flush if cosmetic list changed?
+        EssentialCosmeticsFileData.saveCosmetics();
     }
 }

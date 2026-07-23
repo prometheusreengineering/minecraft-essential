@@ -1,5 +1,6 @@
 package studio.dreamys.prometheus.essential.util;
 
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;
@@ -26,11 +27,16 @@ public enum OS {
         }
     }
 
-    public static Path getConfigFolder() {
+    public static @NotNull Path getConfigFolder() {
         return PathUtil.fromEnvOr("PROMETHEUS_FOLDER", current.configFolder.resolve("prometheus"));
     }
 
     public static boolean isOnWindows() {
         return current == Windows;
+    }
+
+    @Contract(pure = true)
+    public static @NotNull String getName() {
+        return current.toString();
     }
 }

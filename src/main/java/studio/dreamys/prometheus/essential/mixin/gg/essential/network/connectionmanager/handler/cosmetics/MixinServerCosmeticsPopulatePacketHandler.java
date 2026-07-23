@@ -16,9 +16,16 @@ import java.util.Iterator;
 
 @Mixin(value = ServerCosmeticsPopulatePacketHandler.class, remap = false)
 public class MixinServerCosmeticsPopulatePacketHandler {
+    // Run for every cosmetic
     @Inject(method = "onHandle(Lgg/essential/network/connectionmanager/ConnectionManager;Lgg/essential/connectionmanager/common/packet/cosmetic/ServerCosmeticsPopulatePacket;)V", at = @At(value = "INVOKE", target = "Lgg/essential/cosmetics/model/Cosmetic;getType()Ljava/lang/String;"), locals = LocalCapture.CAPTURE_FAILSOFT)
     public void onHandle(ConnectionManager connectionManager, ServerCosmeticsPopulatePacket packet, CallbackInfo ci, CosmeticsManager cosmeticsManager, Iterator<?> var4, Cosmetic cosmetic) {
         if (cosmetic.getId().equalsIgnoreCase("ESSENTIAL_PURCHASE_CONFIRMATION")) return;
         EssentialCosmeticsManager.addCosmetic(cosmetic);
+    }
+
+    // Run once after all cosmetics (above) are done
+    @Inject(method = "onHandle(Lgg/essential/network/connectionmanager/ConnectionManager;Lgg/essential/connectionmanager/common/packet/cosmetic/ServerCosmeticsPopulatePacket;)V", at = @At("RETURN"))
+    public void onHandleReturn(ConnectionManager connectionManager, ServerCosmeticsPopulatePacket packet, CallbackInfo ci) {
+        EssentialCosmeticsManager.flushCosmetics();
     }
 }
