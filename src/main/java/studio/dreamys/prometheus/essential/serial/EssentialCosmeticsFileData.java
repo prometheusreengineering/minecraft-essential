@@ -1,19 +1,23 @@
 package studio.dreamys.prometheus.essential.serial;
 
 import gg.essential.lib.gson.Gson;
+import gg.essential.lib.gson.JsonParseException;
 import gg.essential.lib.gson.reflect.TypeToken;
 import org.jetbrains.annotations.NotNull;
+import studio.dreamys.prometheus.essential.util.GsonUtil;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -28,7 +32,13 @@ public final class EssentialCosmeticsFileData {
     private static final File COSMETICS_FILE =
             new File(EssentialCosmeticsManager.PROMETHEUS_ESSENTIAL_FOLDER.toFile(), "cosmetics.json");
 
+    /** Guarded by itself. Also guards {@link #dirty}. */
     private final @NotNull Set<String> legacyCosmetics;
+    /** For {@link #legacyCosmetics} */
+    private boolean dirty;
+
+    /** For {@link #saveCosmetics()} */
+    private static final Object WRITE_LOCK = new Object();
 
     private EssentialCosmeticsFileData(@NotNull Set<String> legacyCosmetics) {
         this.legacyCosmetics = legacyCosmetics;
@@ -37,6 +47,7 @@ public final class EssentialCosmeticsFileData {
     private static final @NotNull EssentialCosmeticsFileData current;
 
     static {
+        Set<String> loaded = new LinkedHashSet<>();
         try {
             if (!COSMETICS_FILE.exists()) {
                 Files.createDirectories(COSMETICS_FILE.getParentFile().toPath());
@@ -48,43 +59,56 @@ public final class EssentialCosmeticsFileData {
             }
             String json = new String(Files.readAllBytes(COSMETICS_FILE.toPath()), StandardCharsets.UTF_8);
             Set<String> set = GSON.fromJson(json, SET_TYPE);
-            current = new EssentialCosmeticsFileData(set != null ? set : new LinkedHashSet<>());
+            if (set != null) loaded = set;
         } catch (IOException e) {
             throw new RuntimeException(e);
+        } catch (JsonParseException e) {
+            // done to avoid crashing future launches
+            logger.log(Level.SEVERE, "cosmetics.json is corrupt, starting with an empty list", e);
         }
+        current = new EssentialCosmeticsFileData(loaded);
     }
 
     // called by MixinCosmeticsManager
     public static @NotNull Set<@NotNull String> getCosmetics() {
-        return current.legacyCosmetics;
+        synchronized (current.legacyCosmetics) {
+            return new LinkedHashSet<>(current.legacyCosmetics);
+        }
     }
 
-    /** Merges a cosmetic ID into the list, dumps it to file */
+    /** Merges a cosmetic ID into the list (does not save the list to disk). */
     public static boolean addCosmetic(@NotNull String id) {
-        return addCosmetic(id, true);
-    }
-
-    private static boolean addCosmetic(@NotNull String id, boolean save) {
-        if (current.legacyCosmetics.contains(id)) return false;
-        current.legacyCosmetics.add(id);
-        if (save) saveCosmetics();
-        return true;
+        boolean added;
+        synchronized (current.legacyCosmetics) {
+            added = current.legacyCosmetics.add(id);
+            if (added) current.dirty = true;
+        }
+        return added;
     }
 
     /** @see #addCosmetic(String) */
-    public static void addCosmetics(@NotNull String @NotNull ... ids) {
-        for (String id : ids) {
-            addCosmetic(id, false);
-        }
-        saveCosmetics();
+    public static void addCosmetics(@NotNull String @NotNull ...ids) {
+        for (String id : ids) addCosmetic(id);
     }
 
-    private static void saveCosmetics() {
-        try {
-            Files.write(COSMETICS_FILE.toPath(),
-                    GSON.toJson(current.legacyCosmetics, SET_TYPE).getBytes(StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            logger.log(Level.SEVERE, "Failed to save cosmetics list!", e);
+    /** Persists the list to disk if it has pending changes. No-op when nothing changed. */
+    public static void saveCosmetics() {
+        // Serialize writers so two threads can't interleave into a truncated/corrupt file.
+        synchronized (WRITE_LOCK) {
+            Set<String> sorted;
+            synchronized (current.legacyCosmetics) {
+                if (!current.dirty) return;
+                sorted = new TreeSet<>(current.legacyCosmetics); // TreeSet is sorted
+                current.dirty = false;
+            }
+            try {
+                GsonUtil.writePretty(COSMETICS_FILE.toPath(), sorted, SET_TYPE);
+            } catch (IOException e) {
+                synchronized (current.legacyCosmetics) {
+                    current.dirty = true; // write failed; keep the change pending for a later retry
+                }
+                logger.log(Level.SEVERE, "Failed to save cosmetics list!", e);
+            }
         }
     }
 
@@ -92,29 +116,19 @@ public final class EssentialCosmeticsFileData {
      * Downloads and merges from GitHub in the background.
      */
     public static void downloadCosmeticsList() {
-        new Thread(() -> {
-            try {
-                String body;
-                try (InputStream in = URI.create("https://github.com/prometheusreengineering/minecraft-essential/raw/refs/heads/main/src/main/resources/cosmetics.json")
-                        .toURL().openStream()) {
-                    body = readAll(in);
-                }
-                String[] cosmetics = GSON.<Set<String>>fromJson(body, SET_TYPE).toArray(new String[0]);
+        Thread thread = new Thread(() -> {
+            try (Reader reader = new InputStreamReader(
+                    URI.create("https://github.com/prometheusreengineering/minecraft-essential/raw/refs/heads/main/src/main/resources/cosmetics.json")
+                            .toURL().openStream(), StandardCharsets.UTF_8)) {
+                String[] cosmetics = GsonUtil.toStringArray(reader);
                 addCosmetics(cosmetics);
+                saveCosmetics();
                 logger.info("Merged " + cosmetics.length + " cosmetics!");
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Failed to merge new cosmetics!", e);
             }
-        }).start();
-    }
-
-    private static String readAll(InputStream in) throws IOException {
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        byte[] buffer = new byte[8192];
-        int read;
-        while ((read = in.read(buffer)) != -1) {
-            out.write(buffer, 0, read);
-        }
-        return new String(out.toByteArray(), StandardCharsets.UTF_8);
+        }, "Prometheus - ECFD - DownloadCosmeticsList");
+        thread.setDaemon(true);
+        thread.start();
     }
 }
