@@ -17,7 +17,7 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public final class EssentialCosmeticsManager {
+public class EssentialCosmeticsManager {
     private EssentialCosmeticsManager() {}
 
     private static final Logger logger = Logger.getLogger("Prometheus - ECM");
