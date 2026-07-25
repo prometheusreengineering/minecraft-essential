@@ -20,7 +20,6 @@ public class MixinServerCosmeticsPopulatePacketHandler {
     // Run for every cosmetic
     @Inject(method = "onHandle(Lgg/essential/network/connectionmanager/ConnectionManager;Lgg/essential/connectionmanager/common/packet/cosmetic/ServerCosmeticsPopulatePacket;)V", at = @At(value = "INVOKE", target = "Lgg/essential/cosmetics/model/Cosmetic;getType()Ljava/lang/String;"), locals = LocalCapture.CAPTURE_FAILSOFT)
     public void onHandle(ConnectionManager connectionManager, ServerCosmeticsPopulatePacket packet, CallbackInfo ci, CosmeticsManager cosmeticsManager, Iterator<?> var4, @NotNull Cosmetic cosmetic) {
-        if (cosmetic.getId().equalsIgnoreCase("ESSENTIAL_PURCHASE_CONFIRMATION")) return;
         EssentialCosmeticsManager.addCosmetic(cosmetic);
     }
 
