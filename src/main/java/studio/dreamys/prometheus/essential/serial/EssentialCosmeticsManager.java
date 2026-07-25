@@ -14,6 +14,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -86,6 +87,10 @@ public class EssentialCosmeticsManager {
     // Called by MixinServerCosmeticsPopulatePacketHandler once for every cosmetic.
     public static void addCosmetic(@NotNull Cosmetic cosmetic) {
         String id = cosmetic.getId();
+        if (id.equalsIgnoreCase("ESSENTIAL_PURCHASE_CONFIRMATION") || !Pattern.compile("^[A-Z0-9_]+$").asPredicate().test(id)) {
+            logger.fine("Excluding cosmetic " + id);
+            return;
+        }
         logger.fine("Saving " + id + "!");
         EssentialCosmeticsFileData.addCosmetic(id);
         // Dump cosmetic
