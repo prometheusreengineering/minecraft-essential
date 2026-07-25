@@ -5,3 +5,8 @@ target/
 .idea/
 
 **/.DS_Store
+
+# Nix
+.direnv/
+result
+result-*
