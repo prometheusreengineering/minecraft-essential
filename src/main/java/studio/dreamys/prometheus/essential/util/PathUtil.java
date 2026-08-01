@@ -35,7 +35,7 @@ public class PathUtil {
     }
 
     // mkdir -p $(dirname dst) && cp -r src dst
-    // Makes all the folders required for dst, then copes src to dst
+    // Makes all the folders required for dst, then copies src to dst
     public static void copyRecursively(@NotNull Path src, @NotNull Path dst) throws IOException {
         File source = src.toFile();
         if (source.isDirectory()) {

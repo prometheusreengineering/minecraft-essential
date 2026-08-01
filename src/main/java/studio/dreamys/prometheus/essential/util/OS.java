@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Path;
+import java.util.Locale;
 
 public enum OS {
     Windows(PathUtil.fromString(".")),
@@ -17,7 +18,7 @@ public enum OS {
     private final @NotNull Path configFolder;
     private static final @NotNull OS current;
     static {
-        String osName = System.getProperty("os.name").toLowerCase();
+        String osName = System.getProperty("os.name").toLowerCase(Locale.ROOT);
         if (osName.contains("win")) {
             current = Windows;
         } else if (osName.contains("darwin") || osName.contains("mac")) {

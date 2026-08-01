@@ -9,9 +9,11 @@ import studio.dreamys.prometheus.essential.util.PathUtil;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -21,22 +23,28 @@ import java.util.stream.Stream;
 public class EssentialCosmeticsManager {
     private EssentialCosmeticsManager() {}
 
-    private static final Logger logger = Logger.getLogger("Prometheus - ECM");
+    private static final @NotNull Logger logger = Logger.getLogger("Prometheus - ECM");
 
     /** Instance-specific folder for all prometheus patches. This sits inside .minecraft */
-    private static final Path PROMETHEUS_FOLDER = Paths.get("prometheus");
+    private static final @NotNull Path PROMETHEUS_FOLDER = Paths.get("prometheus");
     /** Essential's specific folder. On unix-like systems this is outside .minecraft.
      * Use this. */
-    public static final Path PROMETHEUS_ESSENTIAL_FOLDER = OS.getConfigFolder()
+    public static final @NotNull Path PROMETHEUS_ESSENTIAL_FOLDER = OS.getConfigFolder()
             .resolve("essential")
             .normalize();
 
-    public static final Path DUMPS_PATH = PROMETHEUS_ESSENTIAL_FOLDER.resolve("dumps");
+    public static final @NotNull Path DUMPS_PATH = PROMETHEUS_ESSENTIAL_FOLDER.resolve("dumps");
 
     private static void tryCreateSymlinks() throws IOException {
-        if (Files.exists(PROMETHEUS_FOLDER)) {
-            return;
-        } else if (OS.isOnWindows()) { // Windows doesn't support symlinks
+        // If there is a link there
+        if (Files.exists(PROMETHEUS_FOLDER, LinkOption.NOFOLLOW_LINKS)) {
+            if (Files.isSymbolicLink(PROMETHEUS_FOLDER) && !Files.exists(PROMETHEUS_FOLDER)) {
+                Files.delete(PROMETHEUS_FOLDER); // We have a broken link, delete and replace
+            } else {
+                return;
+            }
+        }
+        if (OS.isOnWindows()) { // Windows doesn't support symlinks
             logger.info("Windows machine, skipping symlinks!");
             Files.createDirectories(PROMETHEUS_ESSENTIAL_FOLDER); // this is the local folder
             return;
@@ -84,10 +92,14 @@ public class EssentialCosmeticsManager {
         logger.info("Loaded cosmetics!");
     }
 
+    // Essential auto-generates UUIDs for vanilla's capes
+    private static final @NotNull Predicate<@NotNull String> IS_VALID_COSMETIC_REGEX = // Dummy ID used by Essential's checkout system.
+            Pattern.compile("^[A-Z0-9_]+$").asPredicate().and((s) -> !s.equalsIgnoreCase("ESSENTIAL_PURCHASE_CONFIRMATION"));
+
     // Called by MixinServerCosmeticsPopulatePacketHandler once for every cosmetic.
     public static void addCosmetic(@NotNull Cosmetic cosmetic) {
         String id = cosmetic.getId();
-        if (id.equalsIgnoreCase("ESSENTIAL_PURCHASE_CONFIRMATION") || !Pattern.compile("^[A-Z0-9_]+$").asPredicate().test(id)) {
+        if (!IS_VALID_COSMETIC_REGEX.test(id)) {
             logger.fine("Excluding cosmetic " + id);
             return;
         }

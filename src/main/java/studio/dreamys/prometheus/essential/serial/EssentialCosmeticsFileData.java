@@ -15,6 +15,8 @@ import java.lang.reflect.Type;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.TreeSet;
@@ -28,12 +30,12 @@ import java.util.logging.Logger;
 public class EssentialCosmeticsFileData {
     private static final @NotNull Logger logger = Logger.getLogger("Prometheus - ECFD");
     private static final Gson GSON = new Gson();
-    private static final Type SET_TYPE = new TypeToken<LinkedHashSet<String>>() {}.getType();
+    private static final @NotNull Type SET_TYPE = new TypeToken<LinkedHashSet<String>>() {}.getType();
     private static final File COSMETICS_FILE =
             new File(EssentialCosmeticsManager.PROMETHEUS_ESSENTIAL_FOLDER.toFile(), "cosmetics.json");
 
     /** Guarded by itself. Also guards {@link #dirty}. */
-    private final @NotNull Set<String> legacyCosmetics;
+    private final @NotNull Set<@NotNull String> legacyCosmetics;
     /** For {@link #legacyCosmetics} */
     private boolean dirty;
 
@@ -102,7 +104,13 @@ public class EssentialCosmeticsFileData {
                 current.dirty = false;
             }
             try {
-                GsonUtil.writePretty(COSMETICS_FILE.toPath(), sorted, SET_TYPE);
+                Path tmp = COSMETICS_FILE.toPath().resolveSibling(COSMETICS_FILE.getName() + ".tmp");
+                try {
+                    GsonUtil.writePretty(tmp, sorted, SET_TYPE);
+                    Files.move(tmp, COSMETICS_FILE.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                } finally {
+                    Files.deleteIfExists(tmp);
+                }
             } catch (IOException e) {
                 synchronized (current.legacyCosmetics) {
                     current.dirty = true; // write failed; keep the change pending for a later retry

@@ -1,6 +1,8 @@
 package studio.dreamys.prometheus.essential.util;
 
 import gg.essential.lib.gson.Gson;
+import gg.essential.lib.gson.JsonIOException;
+import gg.essential.lib.gson.JsonSyntaxException;
 import gg.essential.lib.gson.reflect.TypeToken;
 import gg.essential.lib.gson.stream.JsonWriter;
 import org.jetbrains.annotations.NotNull;
@@ -13,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Set;
 
 public class GsonUtil {
@@ -32,9 +35,13 @@ public class GsonUtil {
     }
 
     /**
-     * Parses a JSON array of strings (e.g. {@code ["a", "b", "c"]}) into a String array
+     * Parses a JSON array of strings (e.g. {@code ["a", "b", "c"]}) into a String[].
      */
     public static @NotNull String @NotNull [] toStringArray(@NotNull Reader reader) {
-        return GSON.<Set<String>>fromJson(reader, STRING_SET_TYPE).toArray(new String[0]);
+        try {
+            return Objects.requireNonNull(GSON.<Set<String>>fromJson(reader, STRING_SET_TYPE)).toArray(new String[0]);
+        } catch (NullPointerException | JsonIOException | JsonSyntaxException e) {
+            return new String[0]; // empty array, will be repopulated next launch (+ when new cosmetics come in from essential)
+        }
     }
 }
