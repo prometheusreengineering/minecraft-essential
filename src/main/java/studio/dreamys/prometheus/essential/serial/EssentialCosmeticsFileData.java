@@ -126,9 +126,9 @@ public class EssentialCosmeticsFileData {
     public static void downloadCosmeticsList() {
         Thread thread = new Thread(() -> {
             try (Reader reader = new InputStreamReader(
-                    URI.create("https://github.com/prometheusreengineering/minecraft-essential/raw/refs/heads/main/src/main/resources/cosmetics.json")
+                    URI.create("https://raw.githubusercontent.com/prometheusreengineering/minecraft-essential/refs/heads/main/src/main/resources/cosmetics.json")
                             .toURL().openStream(), StandardCharsets.UTF_8)) {
-                String[] cosmetics = GsonUtil.toStringArray(reader);
+                String[] cosmetics = GSON.fromJson(reader, String[].class);
                 addCosmetics(cosmetics);
                 saveCosmetics();
                 logger.info("Merged " + cosmetics.length + " cosmetics!");
