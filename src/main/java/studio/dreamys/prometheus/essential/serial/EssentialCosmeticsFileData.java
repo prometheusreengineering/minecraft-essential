@@ -3,6 +3,7 @@ package studio.dreamys.prometheus.essential.serial;
 import gg.essential.lib.gson.Gson;
 import gg.essential.lib.gson.JsonParseException;
 import gg.essential.lib.gson.reflect.TypeToken;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import studio.dreamys.prometheus.essential.util.GsonUtil;
 
@@ -69,6 +70,7 @@ public class EssentialCosmeticsFileData {
     }
 
     // called by MixinCosmeticsManager
+    @Contract(value = "-> new", pure = true)
     public static @NotNull Set<@NotNull String> getCosmetics() {
         synchronized (current.legacyCosmetics) {
             return new LinkedHashSet<>(current.legacyCosmetics);
@@ -92,9 +94,8 @@ public class EssentialCosmeticsFileData {
 
 
     private static final Object SAVE_COSMETICS_WRITE_LOCK = new Object();
-    /** Dumps the list to disk if it has pending changes. */
+    /** Dumps the cosmetic list to disk. */
     public static void saveCosmetics() {
-        // Serialize writers so two threads can't interleave into a truncated/corrupt file.
         synchronized (SAVE_COSMETICS_WRITE_LOCK) {
             Set<String> sorted;
             synchronized (current.legacyCosmetics) {

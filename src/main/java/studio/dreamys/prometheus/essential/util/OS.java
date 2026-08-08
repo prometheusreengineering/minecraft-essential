@@ -29,10 +29,12 @@ public enum OS {
         }
     }
 
+    @Contract(value = "-> new", pure = true)
     public static @NotNull Path getConfigFolder() {
         return PathUtil.fromEnvOr("PROMETHEUS_FOLDER", current.configFolder.resolve("prometheus"));
     }
 
+    @Contract(pure = true)
     public static boolean isOnWindows() {
         return current == Windows;
     }

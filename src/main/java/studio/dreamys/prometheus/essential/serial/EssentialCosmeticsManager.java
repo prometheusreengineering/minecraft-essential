@@ -57,9 +57,6 @@ public class EssentialCosmeticsManager {
 
     // called by MixinEssential
     public static void setupFolderStructure() {
-        logger.fine("Running on " + OS.getName() + "!");
-        logger.fine("PROMETHEUS_FOLDER = " + PROMETHEUS_FOLDER.toAbsolutePath());
-        logger.fine("DUMPS_PATH = " + DUMPS_PATH.toAbsolutePath());
         try {
             tryCreateSymlinks();
             if (!Files.exists(DUMPS_PATH)) {
@@ -106,10 +103,13 @@ public class EssentialCosmeticsManager {
         logger.fine("Saving " + id + "!");
         EssentialCosmeticsFileData.addCosmetic(id);
         // Dump cosmetic
-        File dump = new File(new File(DUMPS_PATH.toFile(), cosmetic.getType()), id + ".json");
+        Path dumpDir = Paths.get(DUMPS_PATH.toString(), cosmetic.getType());
+        File dump = new File(dumpDir.toFile(), id + ".json");
         try {
-            Files.createDirectories(dump.toPath().getParent());
-            GsonUtil.writePretty(dump.toPath(), cosmetic, cosmetic.getClass());
+            if (!Files.exists(dumpDir)) {
+                Files.createDirectories(dumpDir);
+            }
+            GsonUtil.writePretty(dump, cosmetic, cosmetic.getClass());
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to dump cosmetic " + id, e);
         }
