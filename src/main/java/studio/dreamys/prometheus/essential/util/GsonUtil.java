@@ -21,10 +21,10 @@ import java.util.Set;
 public class GsonUtil {
     private GsonUtil() {}
     private static final Gson GSON = new Gson();
-    private static final Type STRING_SET_TYPE = new TypeToken<LinkedHashSet<String>>() {}.getType();
+    private static final @NotNull Type STRING_SET_TYPE = new TypeToken<LinkedHashSet<String>>() {}.getType();
 
     /**
-     * Serializes with 4-space indent (one element per line, no trailing newline)
+     * Serializes with 4-space indent
      */
     public static void writePretty(@NotNull Path path, Object src, @NotNull Type type) throws IOException {
         try (Writer fileWriter = Files.newBufferedWriter(path, StandardCharsets.UTF_8);
@@ -36,6 +36,7 @@ public class GsonUtil {
 
     /**
      * Parses a JSON array of strings (e.g. {@code ["a", "b", "c"]}) into a String[].
+     * Ensures no duplicate items, and gracefully returns an empty array on error.
      */
     public static @NotNull String @NotNull [] toStringArray(@NotNull Reader reader) {
         try {

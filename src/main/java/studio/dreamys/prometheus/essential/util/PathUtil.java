@@ -6,10 +6,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
 
 public class PathUtil {
     @NotNull
@@ -19,19 +16,13 @@ public class PathUtil {
     }
 
     @NotNull
-    @Contract(value = "_ -> new", pure = true)
-    public static Path fromString(@NotNull String p) {
-        return new File(p).toPath();
-    }
-
-    @NotNull
     @Contract(value = "null, _ -> param2", pure = true)
     // Passing null to env is the same as passing a non-existent key (and will return the fallback).
     public static Path fromEnvOr(@Nullable String env, @NotNull Path d) {
         if (env == null) return d;
         String path = System.getenv(env);
         if (path == null || path.isEmpty()) return d;
-        return fromString(path);
+        return Paths.get(path);
     }
 
     // mkdir -p $(dirname dst) && cp -r src dst

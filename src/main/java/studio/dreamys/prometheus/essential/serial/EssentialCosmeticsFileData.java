@@ -34,13 +34,10 @@ public class EssentialCosmeticsFileData {
     private static final File COSMETICS_FILE =
             new File(EssentialCosmeticsManager.PROMETHEUS_ESSENTIAL_FOLDER.toFile(), "cosmetics.json");
 
-    /** Guarded by itself. Also guards {@link #dirty}. */
+    /** Guarded by itself. */
     private final @NotNull Set<@NotNull String> legacyCosmetics;
-    /** For {@link #legacyCosmetics} */
-    private boolean dirty;
+    private boolean isLegacyCosmeticsDirty;
 
-    /** For {@link #saveCosmetics()} */
-    private static final Object WRITE_LOCK = new Object();
 
     private EssentialCosmeticsFileData(@NotNull Set<String> legacyCosmetics) {
         this.legacyCosmetics = legacyCosmetics;
@@ -83,7 +80,7 @@ public class EssentialCosmeticsFileData {
         boolean added;
         synchronized (current.legacyCosmetics) {
             added = current.legacyCosmetics.add(id);
-            if (added) current.dirty = true;
+            if (added) current.isLegacyCosmeticsDirty = true;
         }
         return added;
     }
@@ -93,15 +90,17 @@ public class EssentialCosmeticsFileData {
         for (String id : ids) addCosmetic(id);
     }
 
-    /** Persists the list to disk if it has pending changes. No-op when nothing changed. */
+
+    private static final Object SAVE_COSMETICS_WRITE_LOCK = new Object();
+    /** Dumps the list to disk if it has pending changes. */
     public static void saveCosmetics() {
         // Serialize writers so two threads can't interleave into a truncated/corrupt file.
-        synchronized (WRITE_LOCK) {
+        synchronized (SAVE_COSMETICS_WRITE_LOCK) {
             Set<String> sorted;
             synchronized (current.legacyCosmetics) {
-                if (!current.dirty) return;
+                if (!current.isLegacyCosmeticsDirty) return;
                 sorted = new TreeSet<>(current.legacyCosmetics); // TreeSet is sorted
-                current.dirty = false;
+                current.isLegacyCosmeticsDirty = false;
             }
             try {
                 Path tmp = COSMETICS_FILE.toPath().resolveSibling(COSMETICS_FILE.getName() + ".tmp");
@@ -113,7 +112,7 @@ public class EssentialCosmeticsFileData {
                 }
             } catch (IOException e) {
                 synchronized (current.legacyCosmetics) {
-                    current.dirty = true; // write failed; keep the change pending for a later retry
+                    current.isLegacyCosmeticsDirty = true; // write failed; keep the change pending for a later retry
                 }
                 logger.log(Level.SEVERE, "Failed to save cosmetics list!", e);
             }
