@@ -5,7 +5,6 @@ import gg.essential.cosmetics.model.Cosmetic;
 import gg.essential.network.connectionmanager.ConnectionManager;
 import gg.essential.network.connectionmanager.cosmetics.CosmeticsManager;
 import gg.essential.network.connectionmanager.handler.cosmetics.ServerCosmeticsPopulatePacketHandler;
-import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -19,7 +18,7 @@ import java.util.Iterator;
 public class MixinServerCosmeticsPopulatePacketHandler {
     // Run for every cosmetic
     @Inject(method = "onHandle(Lgg/essential/network/connectionmanager/ConnectionManager;Lgg/essential/connectionmanager/common/packet/cosmetic/ServerCosmeticsPopulatePacket;)V", at = @At(value = "INVOKE", target = "Lgg/essential/cosmetics/model/Cosmetic;getType()Ljava/lang/String;"), locals = LocalCapture.CAPTURE_FAILSOFT)
-    public void onHandle(ConnectionManager connectionManager, ServerCosmeticsPopulatePacket packet, CallbackInfo ci, CosmeticsManager cosmeticsManager, Iterator<?> var4, @NotNull Cosmetic cosmetic) {
+    public void onHandle(ConnectionManager connectionManager, ServerCosmeticsPopulatePacket packet, CallbackInfo ci, CosmeticsManager cosmeticsManager, Iterator<?> var4, Cosmetic cosmetic) {
         EssentialCosmeticsManager.addCosmetic(cosmetic);
     }
 

@@ -6,7 +6,7 @@
 
     <groupId>studio.dreamys</groupId>
     <artifactId>prometheus</artifactId>
-    <version>1.4.0-essential</version>
+    <version>1.5.0-essential</version>
     <description>The Prometheus' patch for Essential Mod.</description>
 
     <repositories>
@@ -75,13 +75,6 @@
             <scope>system</scope>
             <systemPath>${project.basedir}/lib/essential.mock.jar</systemPath>
         </dependency>
-        <!-- Needed because Essential uses Kotlin -->
-        <dependency>
-            <groupId>org.jetbrains.kotlin</groupId>
-            <!--suppress KotlinMavenPluginPhase -->
-            <artifactId>kotlin-stdlib-jdk8</artifactId>
-            <version>2.4.0</version>
-        </dependency>
     </dependencies>
 
     <build>
@@ -102,34 +95,6 @@
                         <manifestFile>src/main/resources/META-INF/MANIFEST.MF</manifestFile>
                     </archive>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>default-compile</id>
-                        <phase>none</phase>
-                    </execution>
-                    <execution>
-                        <id>default-testCompile</id>
-                        <phase>none</phase>
-                    </execution>
-                    <execution>
-                        <id>compile</id>
-                        <phase>compile</phase>
-                        <goals>
-                            <goal>compile</goal>
-                        </goals>
-                    </execution>
-                    <execution>
-                        <id>testCompile</id>
-                        <phase>test-compile</phase>
-                        <goals>
-                            <goal>testCompile</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
