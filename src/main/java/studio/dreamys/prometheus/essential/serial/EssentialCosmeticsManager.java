@@ -25,13 +25,15 @@ public class EssentialCosmeticsManager {
 
     private static final @NotNull Logger logger = Logger.getLogger("Prometheus - ECM");
 
-    /** Instance-specific folder for all prometheus patches. This sits inside .minecraft */
+    /**
+     * Instance-specific folder for all prometheus patches. This sits inside .minecraft
+     */
     private static final @NotNull Path PROMETHEUS_FOLDER = Paths.get("prometheus");
-    /** Essential's specific folder. On unix-like systems this is outside .minecraft.
-     * Use this. */
-    public static final @NotNull Path PROMETHEUS_ESSENTIAL_FOLDER = OS.getConfigFolder()
-            .resolve("essential")
-            .normalize();
+    /**
+     * Essential's specific folder. On unix-like systems this is outside .minecraft.
+     * Use this.
+     */
+    public static final @NotNull Path PROMETHEUS_ESSENTIAL_FOLDER = OS.getConfigFolder().resolve("essential").normalize();
 
     public static final @NotNull Path DUMPS_PATH = PROMETHEUS_ESSENTIAL_FOLDER.resolve("dumps");
 
@@ -109,7 +111,7 @@ public class EssentialCosmeticsManager {
             if (!Files.exists(dumpDir)) {
                 Files.createDirectories(dumpDir);
             }
-            GsonUtil.writePretty(dump, cosmetic, cosmetic.getClass());
+            GsonUtil.writePretty(dump.toPath(), cosmetic, cosmetic.getClass());
         } catch (IOException e) {
             logger.log(Level.SEVERE, "Failed to dump cosmetic " + id, e);
         }
