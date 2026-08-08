@@ -7,6 +7,7 @@ import gg.essential.lib.gson.reflect.TypeToken;
 import gg.essential.lib.gson.stream.JsonWriter;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
@@ -32,6 +33,9 @@ public class GsonUtil {
             jsonWriter.setIndent("    "); // GsonBuilder.setPrettyPrinting is 2 space by default
             GSON.toJson(src, type, jsonWriter);
         }
+    }
+    public static void writePretty(@NotNull File file, Object src, @NotNull Type type) throws IOException {
+        writePretty(file.toPath(), src, type);
     }
 
     /**
