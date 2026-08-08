@@ -12,7 +12,7 @@ public class PathUtil {
     @NotNull
     @Contract(value = "_ -> new", pure = true)
     public static Path fromHomeFolder(@NotNull String ...paths) {
-        return FileSystems.getDefault().getPath(System.getProperty("user.home"), paths);
+        return Paths.get(System.getProperty("user.home"), paths);
     }
 
     @NotNull
