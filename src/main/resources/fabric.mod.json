@@ -11,8 +11,8 @@
     ],
     "license": "GPL-3.0",
     "contact": {
-        "issues": "https://github.com/prometheusreengineering/essential/issues",
-        "sources": "https://github.com/prometheusreengineering/essential",
+        "issues": "https://github.com/prometheusreengineering/minecraft-essential/issues",
+        "sources": "https://github.com/prometheusreengineering/minecraft-essential",
         "discord": "https://discord.gg/zXFKGhRKZQ"
     },
     "icon": "assets/prometheus/icon.png",
@@ -36,7 +36,7 @@
             },
             "links": {
                 "modmenu.discord": "https://discord.gg/zXFKGhRKZQ",
-                "modmenu.github_releases": "https://github.com/prometheusreengineering/essential/releases"
+                "modmenu.github_releases": "https://github.com/prometheusreengineering/minecraft-essential/releases"
             }
         }
     }

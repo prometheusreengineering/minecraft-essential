@@ -1,7 +1,7 @@
 modLoader = "lowcodefml"
 loaderVersion = "[1,)" # NF uses lowcodefml version 1
 license = "GPL-3.0"
-issueTrackerURL = "https://github.com/prometheusreengineering/essential/issues"
+issueTrackerURL = "https://github.com/prometheusreengineering/minecraft-essential/issues"
 
 [[mods]]
 modId = "prometheus_essential"
@@ -10,7 +10,7 @@ displayName = "Prometheus"
 description = "${project.description}"
 logoFile = "assets/prometheus/icon.png"
 features = { java_version = "[8,)" }
-displayURL = "https://github.com/prometheusreengineering/essential"
+displayURL = "https://github.com/prometheusreengineering/minecraft-essential"
 authors = ["dxxxxy", "Cootshk"]
 
 [[mixins]]
