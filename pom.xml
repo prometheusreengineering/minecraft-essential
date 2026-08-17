@@ -6,8 +6,8 @@
 
     <groupId>studio.dreamys</groupId>
     <artifactId>prometheus</artifactId>
-    <version>1.4.0-essential</version>
-    <description>The prometheus' patch for Essential Mod.</description>
+    <version>1.5.0-essential</version>
+    <description>The Prometheus' patch for Essential Mod.</description>
 
     <repositories>
         <repository>
@@ -17,6 +17,12 @@
     </repositories>
 
     <dependencies>
+        <dependency>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>26.0.2</version>
+            <scope>compile</scope>
+        </dependency>
         <dependency>
             <groupId>org.spongepowered</groupId>
             <artifactId>mixin</artifactId>
@@ -65,7 +71,7 @@
         <dependency>
             <groupId>gg.essential</groupId>
             <artifactId>essential</artifactId>
-            <version>1.3.10.4</version>
+            <version>1.4.1</version>
             <scope>system</scope>
             <systemPath>${project.basedir}/lib/essential.mock.jar</systemPath>
         </dependency>

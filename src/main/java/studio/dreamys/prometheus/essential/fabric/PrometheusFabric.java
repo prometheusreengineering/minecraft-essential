@@ -1,4 +1,4 @@
-package studio.dreamys.prometheus;
+package studio.dreamys.prometheus.essential.fabric;
 
 import net.fabricmc.loader.api.entrypoint.PreLaunchEntrypoint;
 import org.spongepowered.asm.launch.MixinBootstrap;
@@ -10,7 +10,7 @@ import java.lang.reflect.Method;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class Prometheus implements PreLaunchEntrypoint {
+public class PrometheusFabric implements PreLaunchEntrypoint {
     private static final Logger logger = Logger.getLogger("Prometheus");
 
     @Override
@@ -24,7 +24,7 @@ public class Prometheus implements PreLaunchEntrypoint {
         }
     }
 
-    //https://github.com/EssentialGG/EssentialLoader/blob/master/stage2/fabric/src/main/java/gg/essential/loader/stage2/EssentialLoader.java#L180
+    // https://github.com/EssentialGG/EssentialLoader/blob/master/stage2/fabric/src/main/java/gg/essential/loader/stage2/EssentialLoader.java#L180
     public static void chainLoadMixins() throws ReflectiveOperationException {
         if (Mixins.getUnvisitedCount() != 0) {
             logger.warning(String.format("Mixins.getUnvisitedCount() = %s", Mixins.getUnvisitedCount()));
