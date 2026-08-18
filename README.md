@@ -7,11 +7,11 @@ The Prometheus' patch for Essential Mod.
 
 ## Compatibility
 
-| Loader   | Versions            |
-|:---------|---------------------|
-| Forge    | 1.8.9-1.12.2, 1.18+ |
-| Fabric   | 1.16+               |
-| NeoForge | 1.20+               |
+| Loader   | Versions |
+|:---------|----------|
+| Forge    | 1.8+     |
+| Fabric   | 1.16+    |
+| NeoForge | 1.20+    |
 
 Download the mod [here](https://github.com/prometheusreengineering/minecraft-essential/releases/latest), or use
 our [loader](https://github.com/prometheusreengineering/prometheus-minecraft/releases/latest) for auto-updates.
@@ -21,7 +21,7 @@ our [loader](https://github.com/prometheusreengineering/prometheus-minecraft/rel
 - Unlocks ALL cosmetics and emotes.
 - Dumps ALL cosmetics and emotes data into `.minecraft/prometheus/essential/dumps`.
 - Lightweight and non-invasive.
-- Compatible with *almost* all versions of Essential Mod.
+- Compatible with all versions of Essential Mod.
 
 ### Legacy (Removed) Cosmetics
 
