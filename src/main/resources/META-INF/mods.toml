@@ -1,4 +1,4 @@
-modLoader = "lowcodefml"
+modLoader = "javafml"
 loaderVersion = "[25,)"
 license = "GPL-3.0"
 
