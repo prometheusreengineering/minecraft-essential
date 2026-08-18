@@ -8,6 +8,9 @@
             "dxxxxy",
             "Cootshk"
         ],
-        "logoFile": "assets/prometheus/icon.png"
+        "logoFile": "assets/prometheus/icon.png",
+        "clientSideOnly": true,
+        "acceptableRemoteVersions": "*",
+        "acceptedMinecraftVersions": "[1.8,)"
     }
 ]
