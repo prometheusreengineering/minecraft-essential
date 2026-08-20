@@ -27,7 +27,7 @@
         "essential-loader": "*"
     },
     "suggests": {
-      "essential-container": "*"
+        "essential-container": "*"
     },
     "custom": {
         "modmenu": {
