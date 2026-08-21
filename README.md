@@ -2,7 +2,7 @@
 
 The Prometheus' patch for Essential Mod.
 
-[![Download Count](https://img.shields.io/github/downloads/prometheusreengineering/essential/total?style=for-the-badge)](https://github.com/prometheusreengineering/essential/releases/)
+[![Download Count](https://img.shields.io/github/downloads/prometheusreengineering/minecraft-essential/total?style=for-the-badge)](https://github.com/prometheusreengineering/minecraft-essential/releases/)
 [![Discord](https://img.shields.io/discord/1197794960985043034?style=for-the-badge&label=Discord&color=rgb(88%2C%20101%2C%20242)%20)](https://discord.gg/BFDWmPfmXg)
 
 ## Compatibility
