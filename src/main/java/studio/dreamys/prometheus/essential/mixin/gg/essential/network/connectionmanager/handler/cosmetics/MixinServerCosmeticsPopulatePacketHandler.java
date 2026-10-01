@@ -2,6 +2,7 @@ package studio.dreamys.prometheus.essential.mixin.gg.essential.network.connectio
 
 import gg.essential.connectionmanager.common.packet.cosmetic.ServerCosmeticsPopulatePacket;
 import gg.essential.cosmetics.model.Cosmetic;
+import gg.essential.connectionmanager.common.packet.cosmetic.ClientCosmeticRequestPacket;
 import gg.essential.network.connectionmanager.ConnectionManager;
 import gg.essential.network.connectionmanager.cosmetics.CosmeticsManager;
 import gg.essential.network.connectionmanager.handler.cosmetics.ServerCosmeticsPopulatePacketHandler;
@@ -10,6 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
+import studio.dreamys.prometheus.essential.serial.EssentialCosmeticsFileData;
 import studio.dreamys.prometheus.essential.serial.EssentialCosmeticsManager;
 
 import java.util.Iterator;
@@ -26,5 +28,6 @@ public class MixinServerCosmeticsPopulatePacketHandler {
     @Inject(method = "onHandle(Lgg/essential/network/connectionmanager/ConnectionManager;Lgg/essential/connectionmanager/common/packet/cosmetic/ServerCosmeticsPopulatePacket;)V", at = @At("RETURN"))
     public void onHandleReturn(ConnectionManager connectionManager, ServerCosmeticsPopulatePacket packet, CallbackInfo ci) {
         EssentialCosmeticsManager.flushCosmetics();
+        connectionManager.send(new ClientCosmeticRequestPacket(EssentialCosmeticsFileData.getCosmetics(), null));
     }
 }
