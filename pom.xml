@@ -6,7 +6,7 @@
 
     <groupId>studio.dreamys</groupId>
     <artifactId>prometheus</artifactId>
-    <version>1.6.0-essential</version>
+    <version>1.6.1-essential</version>
     <description>The Prometheus' patch for Essential Mod.</description>
 
     <repositories>
