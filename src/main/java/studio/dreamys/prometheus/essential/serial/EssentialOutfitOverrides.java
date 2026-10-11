@@ -181,30 +181,33 @@ public class EssentialOutfitOverrides {
         return result;
     }
 
-    private static final Object SAVE_WRITE_LOCK = new Object();
+    /** Snapshots the overrides on the caller's (main) thread and writes them on the IO thread. */
     private static void save() {
-        synchronized (SAVE_WRITE_LOCK) {
-            String json;
-            synchronized (overrides) {
-                try {
-                    json = GsonUtil.toPrettyString(overrides, FILE_TYPE);
-                } catch (IOException e) {
-                    logger.log(Level.SEVERE, "Failed to serialize outfit overrides!", e);
-                    return;
-                }
-            }
+        String json;
+        synchronized (overrides) {
             try {
-                Path tmp = OUTFITS_FILE.toPath().resolveSibling(OUTFITS_FILE.getName() + ".tmp");
-                try {
-                    Files.createDirectories(tmp.getParent());
-                    Files.write(tmp, json.getBytes(StandardCharsets.UTF_8));
-                    Files.move(tmp, OUTFITS_FILE.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                } finally {
-                    Files.deleteIfExists(tmp);
-                }
+                json = GsonUtil.toPrettyString(overrides, FILE_TYPE);
             } catch (IOException e) {
-                logger.log(Level.SEVERE, "Failed to save outfit overrides!", e);
+                logger.log(Level.SEVERE, "Failed to serialize outfit overrides!", e);
+                return;
             }
+        }
+        // single IO thread, so snapshots are written in the order they were taken
+        EssentialCosmeticsManager.runIo(() -> write(json));
+    }
+
+    private static void write(@NotNull String json) {
+        try {
+            Path tmp = OUTFITS_FILE.toPath().resolveSibling(OUTFITS_FILE.getName() + ".tmp");
+            try {
+                Files.createDirectories(tmp.getParent());
+                Files.write(tmp, json.getBytes(StandardCharsets.UTF_8));
+                Files.move(tmp, OUTFITS_FILE.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            } finally {
+                Files.deleteIfExists(tmp);
+            }
+        } catch (IOException e) {
+            logger.log(Level.SEVERE, "Failed to save outfit overrides!", e);
         }
     }
 }

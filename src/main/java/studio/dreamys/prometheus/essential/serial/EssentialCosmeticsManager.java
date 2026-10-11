@@ -112,6 +112,11 @@ public class EssentialCosmeticsManager {
         return thread;
     });
 
+    /** Runs a disk write on the shared IO thread, in submission order. */
+    static void runIo(@NotNull Runnable task) {
+        IO_EXECUTOR.execute(task);
+    }
+
     // Called by MixinServerCosmeticsPopulatePacketHandler once for every cosmetic (on the main thread).
     public static void addCosmetic(@NotNull Cosmetic cosmetic) {
         String id = cosmetic.getId();
