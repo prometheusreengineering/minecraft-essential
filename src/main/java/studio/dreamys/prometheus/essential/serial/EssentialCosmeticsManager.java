@@ -6,13 +6,16 @@ import studio.dreamys.prometheus.essential.util.GsonUtil;
 import studio.dreamys.prometheus.essential.util.OS;
 import studio.dreamys.prometheus.essential.util.PathUtil;
 
-import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -85,7 +88,8 @@ public class EssentialCosmeticsManager {
                 }
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            // done to avoid crashing the game, dumps and the cosmetics list just won't be saved
+            logger.log(Level.SEVERE, "Failed to set up the prometheus folder!", e);
         }
         EssentialCosmeticsFileData.downloadCosmeticsList();
         logger.info("Loaded cosmetics!");
@@ -95,7 +99,20 @@ public class EssentialCosmeticsManager {
     private static final @NotNull Predicate<@NotNull String> IS_VALID_COSMETIC_REGEX = // Dummy ID used by Essential's checkout system.
             Pattern.compile("^[A-Z0-9_]+$").asPredicate().and((s) -> !s.equalsIgnoreCase("ESSENTIAL_PURCHASE_CONFIRMATION"));
 
-    // Called by MixinServerCosmeticsPopulatePacketHandler once for every cosmetic.
+    // The type comes from the server and becomes a folder name, so keep it to plain names (no "..", slashes, etc.)
+    private static final @NotNull Predicate<@NotNull String> IS_VALID_TYPE_REGEX = Pattern.compile("^[A-Z0-9_]+$").asPredicate();
+
+    /**
+     * Disk writes happen here instead of on the caller's (main) thread, populate packets carry 1000+ cosmetics.
+     * Single thread so writes stay in order.
+     */
+    private static final @NotNull ExecutorService IO_EXECUTOR = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "Prometheus - ECM - IO");
+        thread.setDaemon(true);
+        return thread;
+    });
+
+    // Called by MixinServerCosmeticsPopulatePacketHandler once for every cosmetic (on the main thread).
     public static void addCosmetic(@NotNull Cosmetic cosmetic) {
         String id = cosmetic.getId();
         if (!IS_VALID_COSMETIC_REGEX.test(id)) {
@@ -104,22 +121,28 @@ public class EssentialCosmeticsManager {
         }
         logger.fine("Saving " + id + "!");
         EssentialCosmeticsFileData.addCosmetic(id);
-        // Dump cosmetic
-        Path dumpDir = Paths.get(DUMPS_PATH.toString(), cosmetic.getType());
-        File dump = new File(dumpDir.toFile(), id + ".json");
+        String type = cosmetic.getType();
+        if (type == null || !IS_VALID_TYPE_REGEX.test(type)) {
+            logger.fine("Not dumping cosmetic " + id + " with unexpected type " + type);
+            return;
+        }
+        IO_EXECUTOR.execute(() -> dumpCosmetic(cosmetic, DUMPS_PATH.resolve(type).resolve(id + ".json")));
+    }
+
+    private static void dumpCosmetic(@NotNull Cosmetic cosmetic, @NotNull Path dump) {
         try {
-            if (!Files.exists(dumpDir)) {
-                Files.createDirectories(dumpDir);
-            }
-            GsonUtil.writePretty(dump.toPath(), cosmetic, cosmetic.getClass());
+            byte[] json = GsonUtil.toPrettyString(cosmetic, cosmetic.getClass()).getBytes(StandardCharsets.UTF_8);
+            // every (re)connect sends every cosmetic again, skip rewriting the ones that didn't change
+            if (Files.exists(dump) && Arrays.equals(Files.readAllBytes(dump), json)) return;
+            Files.createDirectories(dump.getParent());
+            Files.write(dump, json);
         } catch (IOException e) {
-            logger.log(Level.SEVERE, "Failed to dump cosmetic " + id, e);
+            logger.log(Level.SEVERE, "Failed to dump cosmetic " + cosmetic.getId(), e);
         }
     }
 
     // Called by MixinServerCosmeticsPopulatePacketHandler after the populate loop completes.
     public static void flushCosmetics() {
-        // TODO: only flush if cosmetic list changed?
-        EssentialCosmeticsFileData.saveCosmetics();
+        IO_EXECUTOR.execute(EssentialCosmeticsFileData::saveCosmetics); // no-op if the list didn't change
     }
 }
