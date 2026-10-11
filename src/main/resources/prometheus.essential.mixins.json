@@ -6,6 +6,8 @@
         "gg.essential.MixinEssential",
         "gg.essential.cosmetics.MixinExtensionsKt",
         "gg.essential.network.connectionmanager.cosmetics.MixinCosmeticsManager",
+        "gg.essential.network.connectionmanager.cosmetics.MixinOutfitManager",
+        "gg.essential.network.cosmetics.MixinConversionsKt",
         "gg.essential.network.connectionmanager.handler.cosmetics.MixinServerCosmeticsPopulatePacketHandler"
     ],
     "injectors": {
