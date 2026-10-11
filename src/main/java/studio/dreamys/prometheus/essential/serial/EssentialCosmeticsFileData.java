@@ -14,6 +14,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.reflect.Type;
 import java.net.URI;
+import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -47,26 +48,52 @@ public class EssentialCosmeticsFileData {
     private static final @NotNull EssentialCosmeticsFileData current;
 
     static {
-        Set<String> loaded = new LinkedHashSet<>();
+        Set<String> loaded = null;
         try {
             if (!COSMETICS_FILE.exists()) {
                 Files.createDirectories(COSMETICS_FILE.getParentFile().toPath());
-                try (InputStream in = EssentialCosmeticsFileData.class.getClassLoader()
-                        .getResourceAsStream("cosmetics.json")) {
-                    if (in == null) throw new IllegalStateException("Bundled cosmetics.json not found!");
-                    Files.copy(in, COSMETICS_FILE.toPath());
+                try (InputStream in = openBundled()) {
+                    if (in != null) Files.copy(in, COSMETICS_FILE.toPath());
                 }
             }
             String json = new String(Files.readAllBytes(COSMETICS_FILE.toPath()), StandardCharsets.UTF_8);
-            Set<String> set = GSON.fromJson(json, SET_TYPE);
-            if (set != null) loaded = set;
+            loaded = GSON.fromJson(json, SET_TYPE);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            // done to avoid crashing the game, cosmetics.json is only a cache of the bundled/downloaded lists
+            logger.log(Level.SEVERE, "Failed to read cosmetics.json, using the bundled list", e);
         } catch (JsonParseException e) {
-            // done to avoid crashing future launches
-            logger.log(Level.SEVERE, "cosmetics.json is corrupt, starting with an empty list", e);
+            logger.log(Level.SEVERE, "cosmetics.json is corrupt, using the bundled list", e);
         }
-        current = new EssentialCosmeticsFileData(loaded);
+        boolean fallback = loaded == null;
+        current = new EssentialCosmeticsFileData(fallback ? readBundled() : loaded);
+        current.isLegacyCosmeticsDirty = fallback; // overwrite the broken file on the next save
+    }
+
+    private static InputStream openBundled() {
+        return EssentialCosmeticsFileData.class.getClassLoader().getResourceAsStream("cosmetics.json");
+    }
+
+    /** Never throws, returns an empty set if the bundled list can't be read. */
+    private static @NotNull Set<String> readBundled() {
+        try (InputStream in = openBundled()) {
+            if (in == null) throw new IOException("Bundled cosmetics.json not found!");
+            Set<String> set = GSON.fromJson(new InputStreamReader(in, StandardCharsets.UTF_8), SET_TYPE);
+            if (set != null) return set;
+        } catch (IOException | JsonParseException e) {
+            logger.log(Level.SEVERE, "Failed to read the bundled cosmetics list, starting with an empty list", e);
+        }
+        return new LinkedHashSet<>();
+    }
+
+    /** Set when the downloaded list added cosmetics that haven't been requested from Essential yet. */
+    private static volatile boolean hasUnrequestedCosmetics;
+
+    // called by MixinCosmeticsManager
+    /** Returns whether there were unrequested cosmetics, and clears the flag. */
+    public static boolean consumeUnrequested() {
+        if (!hasUnrequestedCosmetics) return false;
+        hasUnrequestedCosmetics = false;
+        return true;
     }
 
     // called by MixinCosmeticsManager
@@ -87,9 +114,11 @@ public class EssentialCosmeticsFileData {
         return added;
     }
 
-    /** @see #addCosmetic(String) */
-    public static void addCosmetics(@NotNull String @NotNull ...ids) {
-        for (String id : ids) addCosmetic(id);
+    /** @see #addCosmetic(String) @return how many were new */
+    public static int addCosmetics(@NotNull String @NotNull ...ids) {
+        int added = 0;
+        for (String id : ids) if (addCosmetic(id)) added++;
+        return added;
     }
 
 
@@ -106,6 +135,7 @@ public class EssentialCosmeticsFileData {
             try {
                 Path tmp = COSMETICS_FILE.toPath().resolveSibling(COSMETICS_FILE.getName() + ".tmp");
                 try {
+                    Files.createDirectories(tmp.getParent());
                     GsonUtil.writePretty(tmp, sorted, SET_TYPE);
                     Files.move(tmp, COSMETICS_FILE.toPath(), StandardCopyOption.REPLACE_EXISTING);
                 } finally {
@@ -120,18 +150,27 @@ public class EssentialCosmeticsFileData {
         }
     }
 
+    private static final int DOWNLOAD_TIMEOUT_MS = 10_000;
+
     /**
      * Downloads and merges from GitHub in the background.
      */
     public static void downloadCosmeticsList() {
         Thread thread = new Thread(() -> {
-            try (Reader reader = new InputStreamReader(
-                    URI.create("https://raw.githubusercontent.com/prometheusreengineering/minecraft-essential/refs/heads/main/src/main/resources/cosmetics.json")
-                            .toURL().openStream(), StandardCharsets.UTF_8)) {
-                String[] cosmetics = GSON.fromJson(reader, String[].class);
-                addCosmetics(cosmetics);
+            try {
+                URLConnection connection = URI.create("https://raw.githubusercontent.com/prometheusreengineering/minecraft-essential/refs/heads/main/src/main/resources/cosmetics.json")
+                        .toURL().openConnection();
+                connection.setConnectTimeout(DOWNLOAD_TIMEOUT_MS);
+                connection.setReadTimeout(DOWNLOAD_TIMEOUT_MS);
+                String[] cosmetics;
+                try (Reader reader = new InputStreamReader(connection.getInputStream(), StandardCharsets.UTF_8)) {
+                    cosmetics = GSON.fromJson(reader, String[].class);
+                }
+                if (cosmetics == null) throw new IOException("Downloaded cosmetics list is empty");
+                int added = addCosmetics(cosmetics);
+                if (added > 0) hasUnrequestedCosmetics = true;
                 saveCosmetics();
-                logger.info("Merged " + cosmetics.length + " cosmetics!");
+                logger.info("Merged " + cosmetics.length + " cosmetics (" + added + " new)!");
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Failed to merge new cosmetics!", e);
             }
