@@ -14,6 +14,7 @@ import java.util.List;
 public class MixinConversionsKt {
     // Only used by OutfitManager's ServerCosmeticOutfitPopulatePacket handler, so this is where server outfits come in.
     // (hooked here instead of the handler since that's a lambda)
+    @SuppressWarnings("NameDoesntMatchTargetClass")
     @Inject(method = "outfitsToMod", at = @At("RETURN"), cancellable = true)
     private static void onOutfitsToMod(List<?> outfits, CallbackInfoReturnable<List<CosmeticOutfit>> cir) {
         cir.setReturnValue(EssentialOutfitOverrides.apply(cir.getReturnValue()));

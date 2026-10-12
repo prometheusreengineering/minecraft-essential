@@ -146,7 +146,7 @@ public class EssentialCosmeticsManager {
         logger.fine("Saving " + id + "!");
         EssentialCosmeticsFileData.addCosmetic(id);
         String type = cosmetic.getType();
-        if (type == null || !IS_VALID_TYPE_REGEX.test(type)) {
+        if (!IS_VALID_TYPE_REGEX.test(type)) {
             logger.fine("Not dumping cosmetic " + id + " with unexpected type " + type);
             return;
         }
