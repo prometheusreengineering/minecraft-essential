@@ -5,7 +5,7 @@ Prometheus patch for Essential Mod: a set of Mixins that unlock every Essential 
 ## Layout
 
 - `mixin/gg/essential/...` mirrors the package of the Essential class each mixin targets. Every mixin must be listed in `src/main/resources/prometheus.essential.mixins.json` (`defaultRequire: 1`, so a missing target crashes on launch).
-- `serial/` holds our own state, persisted under `OS.getConfigFolder()/essential/`:
+- `serial/` holds our own state, persisted under `OS.getConfigFolder()/essential/`. This folder is global, not per instance: `%APPDATA%/.minecraft/prometheus` on Windows, the per-OS data folder elsewhere, overridable with `PROMETHEUS_FOLDER`. Never resolve it against the working directory. An instance's old local `prometheus/essential` is merged in once (without overwriting) and renamed to `essential.migrated`:
   - `EssentialCosmeticsFileData`: the legacy cosmetic ID list (`cosmetics.json`). It's seeded from the bundled resource and merged from the GitHub copy in the background at startup.
   - `EssentialCosmeticsManager`: folder setup, plus cosmetic dumps written on a single background IO thread.
   - `EssentialOutfitOverrides`: outfit slot/settings changes made on this client (`outfits.json`). These are laid over server outfits, because the server drops legacy cosmetics from saved outfits. An override is dropped once the server agrees with it.

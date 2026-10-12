@@ -46,6 +46,27 @@ public class PathUtil {
         }
     }
 
+    // cp -rn src dst
+    // Like copyRecursively, but never overwrites files that already exist in dst
+    public static void copyMissingRecursively(@NotNull Path src, @NotNull Path dst) throws IOException {
+        File source = src.toFile();
+        if (source.isDirectory()) {
+            Files.createDirectories(dst);
+            File[] children = source.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    copyMissingRecursively(child.toPath(), dst.resolve(child.getName()));
+                }
+            }
+        } else if (!Files.exists(dst)) {
+            Path parent = dst.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+            Files.copy(src, dst);
+        }
+    }
+
     // rm -rf path
     // Deletes a folder and all subfolders
     public static void deleteRecursively(@NotNull Path path) throws IOException {

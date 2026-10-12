@@ -22,7 +22,7 @@ The use of AI-generated code is allowed so long as
 Have a cosmetic that we don't have in [cosmetics.json](src/main/resources/cosmetics.json)? Send us a pull request!
 
 Your local cosmetics.json file can be found at
- - Windows: in `.minecraft/prometheus/essential`
+ - Windows: in `%APPDATA%\.minecraft\prometheus\essential`
  - MacOS: in `~/Library/Application Support/prometheus/essential`
  - Linux: in `$XDG_DATA_HOME/prometheus/essential` (usually `~/.local/share/...`)
 

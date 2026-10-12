@@ -33,7 +33,7 @@ public class EssentialCosmeticsManager {
      */
     private static final @NotNull Path PROMETHEUS_FOLDER = Paths.get("prometheus");
     /**
-     * Essential's specific folder. On unix-like systems this is outside .minecraft.
+     * Essential's specific folder. This is global (not per instance): %APPDATA%/.minecraft on Windows, outside .minecraft elsewhere.
      * Use this.
      */
     public static final @NotNull Path PROMETHEUS_ESSENTIAL_FOLDER = OS.getConfigFolder().resolve("essential").normalize();
@@ -58,6 +58,24 @@ public class EssentialCosmeticsManager {
             Files.createDirectories(PROMETHEUS_ESSENTIAL_FOLDER);
         }
         Files.createSymbolicLink(PROMETHEUS_FOLDER, PROMETHEUS_ESSENTIAL_FOLDER.getParent());
+    }
+
+    /**
+     * Windows used to keep everything in the instance's local folder (and so could a local folder that existed before
+     * the symlink). Merge it into the global one without overwriting, then rename it so this only runs once.
+     */
+    private static void migrateLocalEssentialFolder() throws IOException {
+        Path localFolder = PROMETHEUS_FOLDER.resolve("essential");
+        if (Files.isSymbolicLink(PROMETHEUS_FOLDER) || !Files.isDirectory(localFolder, LinkOption.NOFOLLOW_LINKS)) return;
+        Files.createDirectories(PROMETHEUS_ESSENTIAL_FOLDER);
+        if (Files.isSameFile(localFolder, PROMETHEUS_ESSENTIAL_FOLDER)) return;
+
+        PathUtil.copyMissingRecursively(localFolder, PROMETHEUS_ESSENTIAL_FOLDER);
+        Path migrated = PROMETHEUS_FOLDER.resolve("essential.migrated");
+        if (!Files.exists(migrated)) {
+            Files.move(localFolder, migrated);
+        }
+        logger.info("Migrated " + localFolder.toAbsolutePath() + " to " + PROMETHEUS_ESSENTIAL_FOLDER);
     }
 
     // called by MixinEssential
@@ -87,6 +105,7 @@ public class EssentialCosmeticsManager {
                     }
                 }
             }
+            migrateLocalEssentialFolder();
         } catch (IOException e) {
             // done to avoid crashing the game, dumps and the cosmetics list just won't be saved
             logger.log(Level.SEVERE, "Failed to set up the prometheus folder!", e);
