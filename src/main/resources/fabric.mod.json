@@ -29,6 +29,9 @@
     "suggests": {
         "essential-container": "*"
     },
+    "breaks": {
+        "essential": "<=1.5.0"
+    },
     "custom": {
         "modmenu": {
             "parent": {
