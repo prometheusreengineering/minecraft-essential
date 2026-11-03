@@ -1,0 +1,15 @@
+{
+  "name": "prometheus-essential",
+  "description": "Prometheus with every Essential build on Modrinth: each Minecraft version and loader Essential ships for.",
+  "targets": [
+    { "select": { "modrinth": ["essential"] } }
+  ],
+  "mods": [
+    { "path": "target/prometheus-*-essential.jar" },
+    { "modrinth": "essential" }
+  ],
+  "jvm": { "memoryMb": 2048, "args": ["-Dprometheus.verity.delay=20"] },
+  "display": { "mode": "headless" },
+  "run": { "onlyTargetsWithAllMods": true },
+  "test": { "startupTimeoutSec": 900, "timeoutSec": 1200 }
+}
