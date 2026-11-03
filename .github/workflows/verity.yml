@@ -1,0 +1,104 @@
+name: Verity
+
+# Builds the patch, then boots it next to every Essential build on Modrinth (each Minecraft version and loader
+# Essential ships for) with Verity, headless, on Linux and Windows. See verity.json and verity/VerityChecks.java.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verity-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Essential build the code compiles against (lib/essential.mock.jar, the Forge 1.8.9 jar; not redistributed here).
+  ESSENTIAL_VERSION: "1.5.2"
+  # Verity is private and unreleased for now: it is checked out with the VERITY_TOKEN secret (a fine-grained token
+  # with read access to its contents) and built here. Once it has releases, use prometheusreengineering/verity@<tag>.
+  VERITY_REPO: prometheusreengineering/verity
+  VERITY_REF: claude/verity-minecraft-launcher-peti8v
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Fetch Essential ${{ env.ESSENTIAL_VERSION }} (compile-time only)
+        run: |
+          meta="$(curl -fsSL "https://api.essential.gg/mods/v1/essential:essential/versions/$ESSENTIAL_VERSION/platforms/forge_1-8-9/download")"
+          curl -fsSL "$(jq -r .url <<<"$meta")" -o lib/essential.mock.jar
+          echo "$(jq -r .checksum <<<"$meta")  lib/essential.mock.jar" | md5sum -c -
+      - name: Build
+        run: mvn -B package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prometheus-jar
+          path: target/prometheus-*-essential.jar
+          if-no-files-found: error
+
+  verity:
+    name: Verity ${{ matrix.loader }} (${{ matrix.os }})
+    needs: build
+    # Secrets aren't available to pull requests from forks.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        loader: [fabric, forge, neoforge]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: prometheus-jar
+          path: target
+      - name: Check VERITY_TOKEN
+        shell: bash
+        env:
+          VERITY_TOKEN: ${{ secrets.VERITY_TOKEN }}
+        run: |
+          if [ -z "$VERITY_TOKEN" ]; then
+            echo "::error::Set the VERITY_TOKEN secret (read access to $VERITY_REPO contents)."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ env.VERITY_REPO }}
+          ref: ${{ env.VERITY_REF }}
+          token: ${{ secrets.VERITY_TOKEN }}
+          path: .verity
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build Verity CLI
+        id: verity
+        shell: bash
+        working-directory: .verity
+        run: |
+          ./gradlew :verity-cli:shadowJar --no-daemon -q
+          jar="$(ls "$PWD"/verity-cli/build/libs/verity-cli-*-all.jar)"
+          if [ "$RUNNER_OS" = "Windows" ]; then jar="$(cygpath -w "$jar")"; fi
+          echo "jar=$jar" >> "$GITHUB_OUTPUT"
+      - name: Run Verity
+        uses: ./.verity
+        with:
+          profile: verity.json
+          jar: ${{ steps.verity.outputs.jar }}
+          only: ${{ matrix.loader }}
+          parallel: "3"
