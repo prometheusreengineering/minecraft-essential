@@ -58,7 +58,7 @@ public abstract class MixinCosmeticsManager {
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(ClientTickEvent tickEvent, CallbackInfo ci) {
         flushPendingUnlocks();
-        if (!connectionManager.isAuthenticated()) return;
+        if (!connectionManager.isOpen()) return;
         // The GitHub list is merged in the background and may also land after we connected.
         boolean downloadedNew = EssentialCosmeticsFileData.consumeUnrequested();
         if (legacyRequestPending || downloadedNew) {
