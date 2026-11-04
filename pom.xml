@@ -11,6 +11,10 @@
 
     <repositories>
         <repository>
+            <id>prometheus</id>
+            <url>https://prometheusreengineer.ing/maven/</url>
+        </repository>
+        <repository>
             <id>spongepowered-repo</id>
             <url>https://repo.spongepowered.org/maven/</url>
         </repository>
@@ -46,39 +50,9 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.ow2.asm</groupId>
-            <artifactId>asm</artifactId>
-            <version>9.7.1</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.ow2.asm</groupId>
-            <artifactId>asm-analysis</artifactId>
-            <version>9.7.1</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.ow2.asm</groupId>
-            <artifactId>asm-commons</artifactId>
-            <version>9.7.1</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.ow2.asm</groupId>
-            <artifactId>asm-tree</artifactId>
-            <version>9.7.1</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.ow2.asm</groupId>
-            <artifactId>asm-util</artifactId>
-            <version>9.7.1</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>net.fabricmc</groupId>
             <artifactId>fabric-loader</artifactId>
-            <version>0.16.14</version>
+            <version>0.19.3</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -117,6 +91,24 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Load ./maven iff exists-->
+        <profile>
+            <id>local-maven</id>
+            <activation>
+                <file>
+                    <exists>${basedir}/maven</exists>
+                </file>
+            </activation>
+            <repositories>
+                <repository>
+                    <id>local-maven</id>
+                    <url>file://${project.basedir}/maven</url>
+                </repository>
+            </repositories>
+        </profile>
+    </profiles>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>

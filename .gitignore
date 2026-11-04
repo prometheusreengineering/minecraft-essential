@@ -10,3 +10,6 @@ target/
 .direnv/
 result
 result-*
+
+# Local maven repo
+maven
