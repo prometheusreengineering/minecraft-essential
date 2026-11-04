@@ -4,7 +4,7 @@ Want help contributing? Join the [Discord](https://discord.gg/BFDWmPfmXg)!
 
 ## Code Contributions
 
-To maintain cross-loader compatibility, we use [`Essential#init`](src/main/java/studio/dreamys/prometheus/essential/mixin/gg/essential/MixinEssential.java) as our entrypoint in place of loader entrypoints. If Essential's container (the auto-updater) is being loaded on Fabric, it will load the gg.essential classes into classpath during Fabric's preLaunch entrypoint, so we load the Mixin json file there instead. The Fabric entrypoint should not touch the rest of the codebase.
+To maintain cross-loader compatibility, we use [`Essential#init`](src/main/java/ing/prometheusreengineer/essential/mixin/gg/essential/MixinEssential.java) as our entrypoint in place of loader entrypoints. If Essential's container (the auto-updater) is being loaded on Fabric, it will load the gg.essential classes into classpath during Fabric's preLaunch entrypoint, so we load the Mixin json file there instead. The Fabric entrypoint should not touch the rest of the codebase.
 
 Please use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) in your pull request titles.
 
