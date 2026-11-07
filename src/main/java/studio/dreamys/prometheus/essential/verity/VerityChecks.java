@@ -26,8 +26,8 @@ import java.util.Set;
 
 /**
  * Self-checks reported to <a href="https://github.com/prometheusreengineering/verity">Verity</a>, which runs this
- * jar against every Essential build on every Minecraft version and loader. Everything here is a no-op unless the
- * game was launched by Verity.
+ * jar against the Essential build pinned in {@code verity.json}, on each Minecraft version and loader it ships for.
+ * Everything here is a no-op unless the game was launched by Verity.
  *
  * <p>The main check proves that every mixin in {@value #MIXIN_CONFIG} was applied to this Essential build: each
  * target class is loaded (which applies our mixins, and fails if a required injection point is missing) and must
