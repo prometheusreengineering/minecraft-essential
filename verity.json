@@ -1,0 +1,15 @@
+{
+  "name": "prometheus-essential",
+  "description": "Prometheus with Essential 1.5.2 on each Minecraft version and loader it ships for on Modrinth. Older builds are not tested: Prometheus crashes on 1.4.1.1.",
+  "targets": [
+    { "select": { "modrinth": ["essential"] } }
+  ],
+  "mods": [
+    { "path": "target/prometheus-*-essential.jar" },
+    { "modrinth": "essential", "version": "1.5.2" }
+  ],
+  "jvm": { "memoryMb": 2048, "args": ["-Dprometheus.verity.delay=20"] },
+  "display": { "mode": "headless" },
+  "run": { "onlyTargetsWithAllMods": true },
+  "test": { "startupTimeoutSec": 900, "timeoutSec": 1200 }
+}

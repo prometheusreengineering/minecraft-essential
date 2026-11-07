@@ -10,3 +10,6 @@ target/
 .direnv/
 result
 result-*
+
+# Verity reports
+verity-report/
