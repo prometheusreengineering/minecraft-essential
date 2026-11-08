@@ -44,7 +44,7 @@ jobs:
           path: target/prometheus-*-essential.jar
           if-no-files-found: error
 
-  # Fills the shared and per-OS caches that every loader job below restores.
+  # Fills the one cache per OS that every loader job below restores.
   prepare:
     name: Prepare (${{ matrix.os }})
     needs: build
@@ -76,12 +76,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         loader: [fabric, forge, neoforge]
-        # Measured on these 4-core runners: the slowest job got slower above these, with CPU the limit, not memory.
-        include:
-          - os: ubuntu-latest
-            parallel: "6"
-          - os: windows-latest
-            parallel: "5"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 150
     steps:
@@ -95,4 +89,4 @@ jobs:
         with:
           profile: verity.json
           only: ${{ matrix.loader }}
-          parallel: ${{ matrix.parallel }}
+          parallel: "3"
