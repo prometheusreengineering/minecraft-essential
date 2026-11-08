@@ -11,7 +11,6 @@ on:
       # so it isn't here.
       - "**.md"
       - LICENSE
-      - .gitignore
       # Local development setup: Nix, direnv and IntelliJ run configurations.
       - flake.nix
       - flake.lock
@@ -23,10 +22,6 @@ on:
 
 permissions:
   contents: read
-
-concurrency:
-  group: verity-${{ github.ref }}
-  cancel-in-progress: true
 
 env:
   # Essential build the code compiles against (lib/essential.mock.jar, the Forge 1.8.9 jar; not redistributed here).
