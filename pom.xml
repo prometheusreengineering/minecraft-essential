@@ -15,6 +15,10 @@
             <url>https://repo.spongepowered.org/maven/</url>
         </repository>
         <repository>
+            <id>prometheus</id>
+            <url>https://maven.prometheusreengineer.ing/</url>
+        </repository>
+        <repository>
             <id>cootshk.dev</id>
             <url>https://cootshk.dev/maven/</url>
         </repository>
@@ -88,6 +92,11 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>ing.prometheusreengineer.verity</groupId>
+            <artifactId>verity-api</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+        <dependency>
             <groupId>gg.essential</groupId>
             <artifactId>essential</artifactId>
             <version>1.5.0.1</version>
@@ -114,6 +123,34 @@
                         <manifestFile>src/main/resources/META-INF/MANIFEST.MF</manifestFile>
                     </archive>
                 </configuration>
+            </plugin>
+            <!-- verity-api goes into the jar, relocated: Forge 1.17+ and NeoForge refuse two jars with the same package. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <artifactSet>
+                                <includes>
+                                    <include>ing.prometheusreengineer.verity:verity-api</include>
+                                </includes>
+                            </artifactSet>
+                            <relocations>
+                                <relocation>
+                                    <pattern>ing.prometheusreengineer.verity.api</pattern>
+                                    <shadedPattern>studio.dreamys.prometheus.essential.shadow.verity</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
