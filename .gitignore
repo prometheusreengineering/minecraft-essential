@@ -11,5 +11,6 @@ target/
 result
 result-*
 
-# Verity reports
+# Verity (CI checkout and local reports)
+.verity/
 verity-report/
