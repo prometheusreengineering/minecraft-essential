@@ -6,7 +6,19 @@ name: Verity
 on:
   push:
     branches: [main]
+    paths-ignore: &unaffected
+      # Nothing the build or the Verity run reads. src/main/resources (cosmetics.json included) goes into the jar,
+      # so it isn't here.
+      - "**.md"
+      - LICENSE
+      - .gitignore
+      # Local development setup: Nix, direnv and IntelliJ run configurations.
+      - flake.nix
+      - flake.lock
+      - .envrc
+      - .run/**
   pull_request:
+    paths-ignore: *unaffected
   workflow_dispatch:
 
 permissions:
