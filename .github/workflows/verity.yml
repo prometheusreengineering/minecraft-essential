@@ -44,17 +44,44 @@ jobs:
           path: target/prometheus-*-essential.jar
           if-no-files-found: error
 
-  # Fills the shared and per-OS caches that every loader job below restores.
-  prepare:
-    name: Prepare (${{ matrix.os }})
+  # Verity's plan mode decides the runners: how many, the Linux/Windows split, which targets each gets, and the
+  # cache groups. It learns run times from this workflow's last finished run.
+  plan:
+    name: Plan
     needs: build
+    runs-on: ubuntu-latest
+    # Only planning reads earlier runs' timings and the cache list. A job's permissions replace the workflow's.
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      prepare: ${{ steps.plan.outputs.prepare }}
+      shards: ${{ steps.plan.outputs.shards }}
+      has-prepare: ${{ steps.plan.outputs.has-prepare }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: prometheus-jar
+          path: target
+      - id: plan
+        uses: prometheusreengineering/verity@v1
+        with:
+          mode: plan
+          profile: verity.json
+          os: linux,windows
+
+  # Fills the caches of each cache group that has none yet (about once a week).
+  prepare:
+    name: ${{ matrix.name }}
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.outputs.has-prepare == 'true' }}
     # The test jobs can still download what they need themselves.
     continue-on-error: true
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+      matrix: ${{ fromJSON(needs.plan.outputs.prepare) }}
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -62,27 +89,20 @@ jobs:
         with:
           name: prometheus-jar
           path: target
-      - name: Prepare Verity
-        uses: prometheusreengineering/verity@feat/cache-prepare
+      - uses: prometheusreengineering/verity@v1
         with:
-          mode: prepare
           profile: verity.json
+          job: ${{ toJSON(matrix) }}
 
   verity:
-    name: Verity ${{ matrix.loader }} (${{ matrix.os }})
-    needs: [build, prepare]
+    name: ${{ matrix.name }}
+    needs: [plan, prepare]
+    # Also when prepare was skipped because every cache exists.
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        loader: [fabric, forge, neoforge]
-        # Measured on these 4-core runners: the slowest job got slower above these, with CPU the limit, not memory.
-        include:
-          - os: ubuntu-latest
-            parallel: "6"
-          - os: windows-latest
-            parallel: "5"
-    runs-on: ${{ matrix.os }}
+      matrix: ${{ fromJSON(needs.plan.outputs.shards) }}
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
@@ -91,8 +111,7 @@ jobs:
           name: prometheus-jar
           path: target
       - name: Run Verity
-        uses: prometheusreengineering/verity@feat/cache-prepare
+        uses: prometheusreengineering/verity@v1
         with:
           profile: verity.json
-          only: ${{ matrix.loader }}
-          parallel: ${{ matrix.parallel }}
+          job: ${{ toJSON(matrix) }}
