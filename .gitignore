@@ -10,7 +10,3 @@ target/
 .direnv/
 result
 result-*
-
-# Verity (CI checkout and local reports)
-.verity/
-verity-report/
