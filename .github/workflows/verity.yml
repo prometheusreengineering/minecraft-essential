@@ -44,33 +44,9 @@ jobs:
           path: target/prometheus-*-essential.jar
           if-no-files-found: error
 
-  # Fills the one cache per OS that every loader job below restores.
-  prepare:
-    name: Prepare (${{ matrix.os }})
-    needs: build
-    # The test jobs can still download what they need themselves.
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: prometheus-jar
-          path: target
-      - name: Prepare Verity
-        uses: prometheusreengineering/verity@feat/cache-prepare
-        with:
-          mode: prepare
-          profile: verity.json
-
   verity:
     name: Verity ${{ matrix.loader }} (${{ matrix.os }})
-    needs: [build, prepare]
+    needs: build
     strategy:
       fail-fast: false
       matrix:
@@ -85,7 +61,7 @@ jobs:
           name: prometheus-jar
           path: target
       - name: Run Verity
-        uses: prometheusreengineering/verity@feat/cache-prepare
+        uses: prometheusreengineering/verity@v0.1.0
         with:
           profile: verity.json
           only: ${{ matrix.loader }}
