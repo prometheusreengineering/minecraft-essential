@@ -4,6 +4,7 @@ import gg.essential.Essential;
 import gg.essential.lib.gson.JsonElement;
 import gg.essential.lib.gson.JsonObject;
 import gg.essential.lib.gson.JsonParser;
+import ing.prometheusreengineer.verity.api.Verity;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
