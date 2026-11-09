@@ -31,7 +31,7 @@ import java.util.Set;
 
 /**
  * Self-checks reported to <a href="https://github.com/prometheusreengineering/verity">Verity</a>, which runs this
- * jar against the Essential build pinned in {@code verity.json}, on each Minecraft version and loader it ships for.
+ * jar against the latest Essential release, on each Minecraft version and loader it ships for.
  * Everything here is a no-op unless the game was launched by Verity.
  *
  * <p>The main check proves that every mixin in {@value #MIXIN_CONFIG} was applied to this Essential build: each
@@ -40,7 +40,7 @@ import java.util.Set;
  */
 public final class VerityChecks {
     static final String MIXIN_CONFIG = "prometheus.essential.mixins.json";
-    /** Set by verity-replay.json: the ws:// address of tools/cm-replay. */
+    /** Set by verity.json: the ws:// address of cm-replay (from minecraft-essential-data's snapshot branch). */
     static final String REPLAY_PROPERTY = "prometheus.verity.cm";
     private static final String MIXIN_MERGED = "org.spongepowered.asm.mixin.transformer.meta.MixinMerged";
     private static final String MIXIN_DESC = "Lorg/spongepowered/asm/mixin/Mixin;";
@@ -91,7 +91,7 @@ public final class VerityChecks {
     }
 
     /**
-     * Points Essential's connection manager at {@code tools/cm-replay}. Essential only takes {@code essential.cm.host}
+     * Points Essential's connection manager at cm-replay. Essential only takes {@code essential.cm.host}
      * for {@code wss://} on its own domains, but the URI it connects to is a plain static that each new
      * {@code Connection} reads, and a {@code ws://} URI makes it skip its TLS setup. The Mojang join before connecting
      * goes to {@code minecraft.api.session.host}, which the replay profile points at cm-replay too.

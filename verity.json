@@ -1,6 +1,6 @@
 {
   "name": "prometheus-essential",
-  "description": "Prometheus with Essential 1.5.2 on each Minecraft version and loader it ships for on Modrinth. Older builds are not tested: Prometheus crashes on 1.4.1.1. Signs in with the test account (VERITY_MSA_REFRESH_TOKEN) so the in-game checks can reach Essential's servers.",
+  "description": "Prometheus with the latest Essential release on each Minecraft version and loader it ships for on Modrinth, against cm-replay on loopback instead of Essential's servers: no account and no Mojang sign-in. cm-replay and its recording come from minecraft-essential-data's snapshot branch (recorded hourly). prometheus.verity.cm points Essential at cm-replay (VerityChecks.redirect), and minecraft.api.session.host sends its pre-connect Mojang join to cm-replay too. CI writes the latest Essential version in; the one here is only for local runs. Prometheus crashes on Essential 1.4.1.1, so only targets with that exact build run.",
   "targets": [
     { "select": { "modrinth": ["essential"] } }
   ],
@@ -8,9 +8,15 @@
     { "path": "target/prometheus-*-essential.jar" },
     { "modrinth": "essential", "version": "1.5.2" }
   ],
-  "account": { "type": "msa" },
-  "jvm": { "memoryMb": 2048 },
+  "jvm": {
+    "memoryMb": 2048,
+    "args": [
+      "-Dprometheus.verity.cm=ws://127.0.0.1:47801/v1",
+      "-Dminecraft.api.session.host=http://127.0.0.1:47802",
+      "-Dprometheus.verity.connectTimeout=120"
+    ]
+  },
   "display": { "mode": "headless" },
   "run": { "onlyTargetsWithAllMods": true },
-  "test": { "startupTimeoutSec": 900, "timeoutSec": 1500 }
+  "test": { "startupTimeoutSec": 900, "timeoutSec": 1200 }
 }

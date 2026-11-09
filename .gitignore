@@ -13,6 +13,3 @@ result-*
 
 # Verity reports
 verity-report/
-
-# Verity record job report (holds the filtered recording)
-record-report/
