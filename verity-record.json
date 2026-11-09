@@ -1,0 +1,16 @@
+{
+  "name": "prometheus-essential-record",
+  "description": "One real client signed in with the test account (VERITY_MSA_REFRESH_TOKEN). Runs every check against Essential's servers, then attaches its session, filtered to the cosmetics side (verity/Recording.java), as recording.jsonl for tools/cm-replay to serve to verity-replay.json's targets.",
+  "targets": [
+    { "minecraft": "1.20.1", "loader": "fabric" }
+  ],
+  "mods": [
+    { "path": "target/prometheus-*-essential.jar" },
+    { "modrinth": "essential", "version": "1.5.2" }
+  ],
+  "account": { "type": "msa" },
+  "jvm": { "memoryMb": 2048, "args": ["-Dprometheus.verity.record=true"] },
+  "display": { "mode": "headless" },
+  "run": { "onlyTargetsWithAllMods": true },
+  "test": { "startupTimeoutSec": 900, "timeoutSec": 1500 }
+}
