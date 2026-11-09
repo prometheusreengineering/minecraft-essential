@@ -2,6 +2,7 @@ package studio.dreamys.prometheus.essential.verity;
 
 import gg.essential.Essential;
 import gg.essential.data.OnboardingData;
+import gg.essential.network.connectionmanager.Connection;
 import gg.essential.lib.gson.JsonElement;
 import gg.essential.lib.gson.JsonObject;
 import gg.essential.lib.gson.JsonParser;
@@ -18,7 +19,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -37,6 +40,8 @@ import java.util.Set;
  */
 public final class VerityChecks {
     static final String MIXIN_CONFIG = "prometheus.essential.mixins.json";
+    /** Set by verity-replay.json: the ws:// address of tools/cm-replay. */
+    static final String REPLAY_PROPERTY = "prometheus.verity.cm";
     private static final String MIXIN_MERGED = "org.spongepowered.asm.mixin.transformer.meta.MixinMerged";
     private static final String MIXIN_DESC = "Lorg/spongepowered/asm/mixin/Mixin;";
 
@@ -61,6 +66,16 @@ public final class VerityChecks {
         checkMixins();
         // Offline (no Microsoft account) Essential can't connect, so only the above run.
         boolean online = !"false".equals(System.getProperty("prometheus.verity.online"));
+        final String replay = System.getProperty(REPLAY_PROPERTY);
+        if (online && replay != null) {
+            // Before the Terms are accepted: that's what lets the connect loop start.
+            Verity.test("Essential points at the replay server " + replay, new Runnable() {
+                @Override
+                public void run() {
+                    redirect(URI.create(replay));
+                }
+            });
+        }
         if (online) {
             // Essential's connect loop waits until its Terms of Service are accepted, which nobody can click in a fresh
             // headless instance. Verity sandboxes the game and home folders, so this only answers for the test instance.
@@ -73,6 +88,24 @@ public final class VerityChecks {
             });
         }
         GameChecks.start(online);
+    }
+
+    /**
+     * Points Essential's connection manager at {@code tools/cm-replay}. Essential only takes {@code essential.cm.host}
+     * for {@code wss://} on its own domains, but the URI it connects to is a plain static that each new
+     * {@code Connection} reads, and a {@code ws://} URI makes it skip its TLS setup. The Mojang join before connecting
+     * goes to {@code minecraft.api.session.host}, which the replay profile points at cm-replay too.
+     */
+    static void redirect(URI uri) {
+        if (!"ws".equals(uri.getScheme())) throw new IllegalArgumentException(REPLAY_PROPERTY + " must be ws://, not " + uri);
+        try {
+            Field field = Connection.class.getDeclaredField("CM_HOST_URI");
+            field.setAccessible(true);
+            field.set(null, uri);
+            if (!uri.equals(field.get(null))) throw new AssertionError("CM_HOST_URI is still " + field.get(null));
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("cannot set Connection.CM_HOST_URI", e);
+        }
     }
 
     private static void checkMixins() {

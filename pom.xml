@@ -109,6 +109,13 @@
             <version>5.10.3</version>
             <scope>test</scope>
         </dependency>
+        <!-- Essential logs through log4j, which the game provides. -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.19.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
