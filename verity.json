@@ -12,5 +12,5 @@
   "jvm": { "memoryMb": 2048 },
   "display": { "mode": "headless" },
   "run": { "onlyTargetsWithAllMods": true },
-  "test": { "startupTimeoutSec": 900, "timeoutSec": 1200 }
+  "test": { "startupTimeoutSec": 900, "timeoutSec": 1500 }
 }

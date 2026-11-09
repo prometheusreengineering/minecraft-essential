@@ -47,6 +47,12 @@ public final class GameChecks {
     private enum Phase { CONNECT, LOAD, SETTLE, DONE }
 
     private static final long PHASE_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(Integer.getInteger("prometheus.verity.timeout", 240));
+    /**
+     * Every target signs in to Essential through Mojang's session server with the same account, at about the same
+     * time; Mojang rate-limits that (HTTP 429) and Essential retries every 5 s, so on CI the last ones get through
+     * minutes later.
+     */
+    private static final long CONNECT_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(Integer.getInteger("prometheus.verity.connectTimeout", 900));
     /** The server keeps sending cosmetics (legacy ones answer our request) for a while after "loaded". */
     private static final long SETTLE_NANOS = TimeUnit.SECONDS.toNanos(Integer.getInteger("prometheus.verity.settle", 15));
     private static final int SURVIVE_SECONDS = Integer.getInteger("prometheus.verity.survive", 10);
@@ -90,9 +96,10 @@ public final class GameChecks {
                 if (connection.isOpen()) {
                     Verity.pass("connected to Essential's servers after " + seconds(elapsed));
                     next(Phase.LOAD, now);
-                } else if (elapsed > PHASE_TIMEOUT_NANOS) {
+                } else if (elapsed > CONNECT_TIMEOUT_NANOS) {
                     Verity.fail("connected to Essential's servers", "not connected after " + seconds(elapsed)
-                            + ". Is the test account signed in (VERITY_MSA_REFRESH_TOKEN), and are Essential's servers up?");
+                            + ". Is the test account signed in (VERITY_MSA_REFRESH_TOKEN), are Essential's servers up,"
+                            + " and does the log show Mojang rate-limiting (too many clients signing in at once)?");
                     done();
                 }
                 return;
