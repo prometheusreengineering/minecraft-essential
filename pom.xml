@@ -99,9 +99,15 @@
         <dependency>
             <groupId>gg.essential</groupId>
             <artifactId>essential</artifactId>
-            <version>1.5.0.1</version>
+            <version>1.5.2</version>
             <scope>system</scope>
             <systemPath>${project.basedir}/lib/essential.mock.jar</systemPath>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.3</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 
@@ -122,6 +128,54 @@
                         <addMavenDescriptor>false</addMavenDescriptor>
                         <manifestFile>src/main/resources/META-INF/MANIFEST.MF</manifestFile>
                     </archive>
+                </configuration>
+            </plugin>
+            <!-- Tests run Essential's own classes, which need the libraries nested in its jar (Kotlin, elementa, ...).
+                 Its Mixin copy is left out: the Mixin dependency above provides it. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>unpack-essential-libraries</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <unzip src="${project.basedir}/lib/essential.mock.jar" dest="${project.build.directory}/test-libs/jars">
+                                    <patternset>
+                                        <include name="META-INF/jars/*.jar"/>
+                                        <exclude name="META-INF/jars/essential-loader-mixin*"/>
+                                    </patternset>
+                                </unzip>
+                                <unzip dest="${project.build.directory}/test-libs/classes">
+                                    <fileset dir="${project.build.directory}/test-libs/jars/META-INF/jars" includes="*.jar"/>
+                                    <patternset>
+                                        <exclude name="META-INF/*.SF"/>
+                                        <exclude name="META-INF/*.RSA"/>
+                                        <exclude name="META-INF/*.DSA"/>
+                                    </patternset>
+                                </unzip>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <additionalClasspathElements>
+                        <additionalClasspathElement>${project.build.directory}/test-libs/classes</additionalClasspathElement>
+                    </additionalClasspathElements>
+                    <!-- Nothing a test does may reach the real Prometheus folder. -->
+                    <environmentVariables>
+                        <PROMETHEUS_FOLDER>${project.build.directory}/test-prometheus</PROMETHEUS_FOLDER>
+                    </environmentVariables>
                 </configuration>
             </plugin>
             <!-- verity-api goes into the jar, relocated: Forge 1.17+ and NeoForge refuse two jars with the same package. -->
