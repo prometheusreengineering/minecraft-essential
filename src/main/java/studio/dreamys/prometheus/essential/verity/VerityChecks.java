@@ -1,6 +1,7 @@
 package studio.dreamys.prometheus.essential.verity;
 
 import gg.essential.Essential;
+import gg.essential.data.OnboardingData;
 import gg.essential.lib.gson.JsonElement;
 import gg.essential.lib.gson.JsonObject;
 import gg.essential.lib.gson.JsonParser;
@@ -58,8 +59,20 @@ public final class VerityChecks {
             }
         });
         checkMixins();
-        // Offline (no Microsoft account, e.g. pull requests from forks) Essential can't connect, so only the above run.
-        GameChecks.start(!"false".equals(System.getProperty("prometheus.verity.online")));
+        // Offline (no Microsoft account) Essential can't connect, so only the above run.
+        boolean online = !"false".equals(System.getProperty("prometheus.verity.online"));
+        if (online) {
+            // Essential's connect loop waits until its Terms of Service are accepted, which nobody can click in a fresh
+            // headless instance. Verity sandboxes the game and home folders, so this only answers for the test instance.
+            Verity.test("Essential's Terms of Service accepted", new Runnable() {
+                @Override
+                public void run() {
+                    if (!OnboardingData.hasAcceptedTos()) OnboardingData.setAcceptedTos();
+                    if (!OnboardingData.hasAcceptedTos()) throw new AssertionError("still not accepted");
+                }
+            });
+        }
+        GameChecks.start(online);
     }
 
     private static void checkMixins() {
