@@ -13,7 +13,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import studio.dreamys.prometheus.essential.util.GsonUtil;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
@@ -26,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -36,14 +36,15 @@ import java.util.logging.Logger;
  * Serializes as {@code {"outfitId": {"slots": {"slotId": "COSMETIC_ID"}, "settings": {"COSMETIC_ID": [...]}}}}.
  */
 public class EssentialOutfitOverrides {
-    private EssentialOutfitOverrides() {}
 
     private static final @NotNull Logger logger = Logger.getLogger("Prometheus - EOO");
     private static final Gson GSON = new Gson();
     private static final @NotNull Type FILE_TYPE = new TypeToken<LinkedHashMap<String, OutfitOverrides>>() {}.getType();
     private static final @NotNull Type SLOTS_TYPE = new TypeToken<LinkedHashMap<String, String>>() {}.getType();
-    private static final File OUTFITS_FILE =
-            new File(EssentialCosmeticsManager.PROMETHEUS_ESSENTIAL_FOLDER.toFile(), "outfits.json");
+
+    private final @NotNull Path file;
+    /** Runs the disk writes, in submission order. */
+    private final @NotNull Executor io;
 
     private static final class OutfitOverrides {
         /** slotId -> cosmeticId */
@@ -57,13 +58,30 @@ public class EssentialOutfitOverrides {
     }
 
     /** Guarded by itself. outfitId -> overrides */
-    private static final @NotNull Map<String, OutfitOverrides> overrides = load();
+    private final @NotNull Map<String, OutfitOverrides> overrides;
 
-    private static @NotNull Map<String, OutfitOverrides> load() {
+    /** Loads {@code file}; tests pass their own path and a direct executor. */
+    EssentialOutfitOverrides(@NotNull Path file, @NotNull Executor io) {
+        this.file = file;
+        this.io = io;
+        this.overrides = load(file);
+    }
+
+    /** The instance the game uses, created on first use (so merely loading this class touches no files). */
+    private static final class Current {
+        static final @NotNull EssentialOutfitOverrides INSTANCE = new EssentialOutfitOverrides(
+                EssentialCosmeticsManager.PROMETHEUS_ESSENTIAL_FOLDER.resolve("outfits.json"), EssentialCosmeticsManager::runIo);
+    }
+
+    static @NotNull EssentialOutfitOverrides current() {
+        return Current.INSTANCE;
+    }
+
+    private static @NotNull Map<String, OutfitOverrides> load(@NotNull Path file) {
         Map<String, OutfitOverrides> loaded = new LinkedHashMap<>();
         try {
-            if (!OUTFITS_FILE.exists()) return loaded;
-            String json = new String(Files.readAllBytes(OUTFITS_FILE.toPath()), StandardCharsets.UTF_8);
+            if (!Files.exists(file)) return loaded;
+            String json = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
             JsonObject root = GSON.fromJson(json, JsonObject.class);
             if (root == null) return loaded;
             for (Map.Entry<String, JsonElement> entry : root.entrySet()) {
@@ -89,6 +107,10 @@ public class EssentialOutfitOverrides {
 
     // called by MixinOutfitManager whenever a slot is (un)equipped on this client
     public static void setSlot(@NotNull String outfitId, @NotNull String slotId, @Nullable String cosmeticId) {
+        current().putSlot(outfitId, slotId, cosmeticId);
+    }
+
+    void putSlot(@NotNull String outfitId, @NotNull String slotId, @Nullable String cosmeticId) {
         synchronized (overrides) {
             OutfitOverrides outfit = overrides.computeIfAbsent(outfitId, k -> new OutfitOverrides());
             // unequipping is always persisted by the server, so there's nothing to remember
@@ -101,6 +123,10 @@ public class EssentialOutfitOverrides {
 
     // called by MixinOutfitManager whenever a cosmetic's settings change on this client
     public static void setSettings(@NotNull String outfitId, @NotNull String cosmeticId, @NotNull List<? extends CosmeticSetting> settings) {
+        current().putSettings(outfitId, cosmeticId, settings);
+    }
+
+    void putSettings(@NotNull String outfitId, @NotNull String cosmeticId, @NotNull List<? extends CosmeticSetting> settings) {
         List<gg.essential.cosmetics.model.CosmeticSetting> infra = ConversionsKt.settingsToInfra(settings);
         synchronized (overrides) {
             OutfitOverrides outfit = overrides.computeIfAbsent(outfitId, k -> new OutfitOverrides());
@@ -114,6 +140,10 @@ public class EssentialOutfitOverrides {
 
     // called by MixinOutfitManager when an outfit is deleted
     public static void removeOutfit(@NotNull String outfitId) {
+        current().dropOutfit(outfitId);
+    }
+
+    void dropOutfit(@NotNull String outfitId) {
         boolean removed;
         synchronized (overrides) {
             removed = overrides.remove(outfitId) != null;
@@ -123,6 +153,10 @@ public class EssentialOutfitOverrides {
 
     // called by MixinConversionsKt with the outfits the server just sent
     public static @NotNull List<CosmeticOutfit> apply(@NotNull List<CosmeticOutfit> outfits) {
+        return current().applyTo(outfits);
+    }
+
+    @NotNull List<CosmeticOutfit> applyTo(@NotNull List<CosmeticOutfit> outfits) {
         List<CosmeticOutfit> result = new ArrayList<>(outfits.size());
         boolean changed = false;
         synchronized (overrides) {
@@ -182,7 +216,7 @@ public class EssentialOutfitOverrides {
     }
 
     /** Snapshots the overrides on the caller's (main) thread and writes them on the IO thread. */
-    private static void save() {
+    private void save() {
         String json;
         synchronized (overrides) {
             try {
@@ -193,16 +227,16 @@ public class EssentialOutfitOverrides {
             }
         }
         // single IO thread, so snapshots are written in the order they were taken
-        EssentialCosmeticsManager.runIo(() -> write(json));
+        io.execute(() -> write(json));
     }
 
-    private static void write(@NotNull String json) {
+    private void write(@NotNull String json) {
         try {
-            Path tmp = OUTFITS_FILE.toPath().resolveSibling(OUTFITS_FILE.getName() + ".tmp");
+            Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
             try {
-                Files.createDirectories(tmp.getParent());
+                Files.createDirectories(tmp.toAbsolutePath().getParent());
                 Files.write(tmp, json.getBytes(StandardCharsets.UTF_8));
-                Files.move(tmp, OUTFITS_FILE.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
             } finally {
                 Files.deleteIfExists(tmp);
             }

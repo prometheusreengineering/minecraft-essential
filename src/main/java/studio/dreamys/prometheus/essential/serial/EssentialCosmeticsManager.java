@@ -2,6 +2,7 @@ package studio.dreamys.prometheus.essential.serial;
 
 import gg.essential.cosmetics.model.Cosmetic;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import studio.dreamys.prometheus.essential.util.GsonUtil;
 import studio.dreamys.prometheus.essential.util.OS;
 import studio.dreamys.prometheus.essential.util.PathUtil;
@@ -40,72 +41,52 @@ public class EssentialCosmeticsManager {
 
     public static final @NotNull Path DUMPS_PATH = PROMETHEUS_ESSENTIAL_FOLDER.resolve("dumps");
 
-    private static void tryCreateSymlinks() throws IOException {
+    /**
+     * Points the instance's {@code local} folder at the global one ({@code essential}'s parent) with a symlink, except on
+     * Windows, which only gets the global folder.
+     */
+    static void tryCreateSymlinks(@NotNull Path local, @NotNull Path essential, boolean windows) throws IOException {
         // If there is a link there
-        if (Files.exists(PROMETHEUS_FOLDER, LinkOption.NOFOLLOW_LINKS)) {
-            if (Files.isSymbolicLink(PROMETHEUS_FOLDER) && !Files.exists(PROMETHEUS_FOLDER)) {
-                Files.delete(PROMETHEUS_FOLDER); // We have a broken link, delete and replace
+        if (Files.exists(local, LinkOption.NOFOLLOW_LINKS)) {
+            if (Files.isSymbolicLink(local) && !Files.exists(local)) {
+                Files.delete(local); // We have a broken link, delete and replace
             } else {
                 return;
             }
         }
-        if (OS.isOnWindows()) { // Windows doesn't support symlinks
+        if (windows) { // Windows doesn't support symlinks
             logger.info("Windows machine, skipping symlinks!");
-            Files.createDirectories(PROMETHEUS_ESSENTIAL_FOLDER); // this is the local folder
+            Files.createDirectories(essential); // this is the local folder
             return;
         }
-        if (!Files.exists(PROMETHEUS_ESSENTIAL_FOLDER)) {
-            Files.createDirectories(PROMETHEUS_ESSENTIAL_FOLDER);
+        if (!Files.exists(essential)) {
+            Files.createDirectories(essential);
         }
-        Files.createSymbolicLink(PROMETHEUS_FOLDER, PROMETHEUS_ESSENTIAL_FOLDER.getParent());
+        Files.createSymbolicLink(local, essential.getParent());
     }
 
     /**
      * Windows used to keep everything in the instance's local folder (and so could a local folder that existed before
      * the symlink). Merge it into the global one without overwriting, then rename it so this only runs once.
      */
-    private static void migrateLocalEssentialFolder() throws IOException {
-        Path localFolder = PROMETHEUS_FOLDER.resolve("essential");
-        if (Files.isSymbolicLink(PROMETHEUS_FOLDER) || !Files.isDirectory(localFolder, LinkOption.NOFOLLOW_LINKS)) return;
-        Files.createDirectories(PROMETHEUS_ESSENTIAL_FOLDER);
-        if (Files.isSameFile(localFolder, PROMETHEUS_ESSENTIAL_FOLDER)) return;
+    static void migrateLocalEssentialFolder(@NotNull Path local, @NotNull Path essential) throws IOException {
+        Path localFolder = local.resolve("essential");
+        if (Files.isSymbolicLink(local) || !Files.isDirectory(localFolder, LinkOption.NOFOLLOW_LINKS)) return;
+        Files.createDirectories(essential);
+        if (Files.isSameFile(localFolder, essential)) return;
 
-        PathUtil.copyMissingRecursively(localFolder, PROMETHEUS_ESSENTIAL_FOLDER);
-        Path migrated = PROMETHEUS_FOLDER.resolve("essential.migrated");
+        PathUtil.copyMissingRecursively(localFolder, essential);
+        Path migrated = local.resolve("essential.migrated");
         if (!Files.exists(migrated)) {
             Files.move(localFolder, migrated);
         }
-        logger.info("Migrated " + localFolder.toAbsolutePath() + " to " + PROMETHEUS_ESSENTIAL_FOLDER);
+        logger.info("Migrated " + localFolder.toAbsolutePath() + " to " + essential);
     }
 
     // called by MixinEssential
     public static void setupFolderStructure() {
         try {
-            tryCreateSymlinks();
-            if (!Files.exists(DUMPS_PATH)) {
-                Files.createDirectories(DUMPS_PATH);
-                // migration
-                Path oldDumpsFolder = PROMETHEUS_FOLDER.resolve("dumps").resolve("essential").normalize();
-                if (Files.exists(oldDumpsFolder)) {
-                    List<Path> folders;
-                    try (Stream<Path> entries = Files.list(oldDumpsFolder)) {
-                        folders = entries.collect(Collectors.toList());
-                    }
-                    for (Path folder : folders) {
-                        PathUtil.copyRecursively(folder, DUMPS_PATH.resolve(folder.getFileName()));
-                    }
-                    PathUtil.deleteRecursively(oldDumpsFolder);
-                    if (PathUtil.isEmptyOrNull(oldDumpsFolder.getParent().toFile())) {
-                        Files.delete(oldDumpsFolder.getParent());
-                    }
-                    // If the *local* folder is empty we can delete it and point it to the global one
-                    if (PathUtil.isEmptyOrNull(PROMETHEUS_FOLDER.toFile())) {
-                        Files.delete(PROMETHEUS_FOLDER);
-                        tryCreateSymlinks();
-                    }
-                }
-            }
-            migrateLocalEssentialFolder();
+            setupFolders(PROMETHEUS_FOLDER, PROMETHEUS_ESSENTIAL_FOLDER, OS.isOnWindows());
         } catch (IOException e) {
             // done to avoid crashing the game, dumps and the cosmetics list just won't be saved
             logger.log(Level.SEVERE, "Failed to set up the prometheus folder!", e);
@@ -114,12 +95,57 @@ public class EssentialCosmeticsManager {
         logger.info("Loaded cosmetics!");
     }
 
+    /** Creates the folders and migrates old layouts; {@code local} is the instance's folder, {@code essential} the global one. */
+    static void setupFolders(@NotNull Path local, @NotNull Path essential, boolean windows) throws IOException {
+        tryCreateSymlinks(local, essential, windows);
+        Path dumps = essential.resolve("dumps");
+        if (!Files.exists(dumps)) {
+            Files.createDirectories(dumps);
+            // migration
+            Path oldDumpsFolder = local.resolve("dumps").resolve("essential").normalize();
+            if (Files.exists(oldDumpsFolder)) {
+                List<Path> folders;
+                try (Stream<Path> entries = Files.list(oldDumpsFolder)) {
+                    folders = entries.collect(Collectors.toList());
+                }
+                for (Path folder : folders) {
+                    PathUtil.copyRecursively(folder, dumps.resolve(folder.getFileName().toString()));
+                }
+                PathUtil.deleteRecursively(oldDumpsFolder);
+                if (PathUtil.isEmptyOrNull(oldDumpsFolder.getParent().toFile())) {
+                    Files.delete(oldDumpsFolder.getParent());
+                }
+                // If the *local* folder is empty we can delete it and point it to the global one
+                if (PathUtil.isEmptyOrNull(local.toFile())) {
+                    Files.delete(local);
+                    tryCreateSymlinks(local, essential, windows);
+                }
+            }
+        }
+        migrateLocalEssentialFolder(local, essential);
+    }
+
     // Essential auto-generates UUIDs for vanilla's capes
     private static final @NotNull Predicate<@NotNull String> IS_VALID_COSMETIC_REGEX = // Dummy ID used by Essential's checkout system.
             Pattern.compile("^[A-Z0-9_]+$").asPredicate().and((s) -> !s.equalsIgnoreCase("ESSENTIAL_PURCHASE_CONFIRMATION"));
 
     // The type comes from the server and becomes a folder name, so keep it to plain names (no "..", slashes, etc.)
     private static final @NotNull Predicate<@NotNull String> IS_VALID_TYPE_REGEX = Pattern.compile("^[A-Z0-9_]+$").asPredicate();
+
+    /** Whether a cosmetic ID belongs in the list (not a generated cape UUID or Essential's checkout placeholder). */
+    public static boolean isValidCosmeticId(@NotNull String id) {
+        return IS_VALID_COSMETIC_REGEX.test(id);
+    }
+
+    /** Whether a cosmetic type is safe to use as a folder name. */
+    static boolean isValidType(@NotNull String type) {
+        return IS_VALID_TYPE_REGEX.test(type);
+    }
+
+    /** Where a cosmetic is dumped under {@code dumps}, or null if its type isn't a safe folder name. */
+    static @Nullable Path dumpPath(@NotNull Path dumps, @NotNull String type, @NotNull String id) {
+        return isValidType(type) ? dumps.resolve(type).resolve(id + ".json") : null;
+    }
 
     /**
      * Disk writes happen here instead of on the caller's (main) thread, populate packets carry 1000+ cosmetics.
@@ -139,21 +165,23 @@ public class EssentialCosmeticsManager {
     // Called by MixinServerCosmeticsPopulatePacketHandler once for every cosmetic (on the main thread).
     public static void addCosmetic(@NotNull Cosmetic cosmetic) {
         String id = cosmetic.getId();
-        if (!IS_VALID_COSMETIC_REGEX.test(id)) {
+        if (!isValidCosmeticId(id)) {
             logger.fine("Excluding cosmetic " + id);
             return;
         }
         logger.fine("Saving " + id + "!");
         EssentialCosmeticsFileData.addCosmetic(id);
         String type = cosmetic.getType();
-        if (!IS_VALID_TYPE_REGEX.test(type)) {
+        Path dump = dumpPath(DUMPS_PATH, type, id);
+        if (dump == null) {
             logger.fine("Not dumping cosmetic " + id + " with unexpected type " + type);
             return;
         }
-        IO_EXECUTOR.execute(() -> dumpCosmetic(cosmetic, DUMPS_PATH.resolve(type).resolve(id + ".json")));
+        IO_EXECUTOR.execute(() -> dumpCosmetic(cosmetic, dump));
     }
 
-    private static void dumpCosmetic(@NotNull Cosmetic cosmetic, @NotNull Path dump) {
+    /** Writes the cosmetic's JSON to {@code dump}, unless the file already has exactly that content. */
+    static void dumpCosmetic(@NotNull Cosmetic cosmetic, @NotNull Path dump) {
         try {
             byte[] json = GsonUtil.toPrettyString(cosmetic, cosmetic.getClass()).getBytes(StandardCharsets.UTF_8);
             // every (re)connect sends every cosmetic again, skip rewriting the ones that didn't change
