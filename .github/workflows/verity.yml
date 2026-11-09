@@ -1,20 +1,24 @@
 name: Verity
 
 # Builds the patch, then boots it next to the Essential build pinned in the profile with Verity, headless, on Linux
-# and Windows, signed in with the test account so the in-game checks reach Essential's servers. See
-# verity/VerityChecks.java and verity/GameChecks.java.
+# and Windows, and checks in game that the patch works (verity/VerityChecks.java, verity/GameChecks.java).
 #
-# Every target signs in to Essential with the one account, which Mojang rate-limits, so pull requests run the six
-# targets of verity-pr.json (minutes), and main, the nightly run and manual runs all of verity.json (each Minecraft
-# version and loader the Essential build ships for on Modrinth; the last targets connect after up to 15 minutes).
+# Essential talks to its servers only after a Mojang sign-in, which Mojang rate-limits per account, so the targets
+# don't all sign in:
+# - The record job runs one real client with the test account (verity-record.json). Besides every check, it attaches
+#   its Essential session, filtered to the cosmetics side, as recording.jsonl.
+# - The test jobs run every target (verity-replay.json) against tools/cm-replay on loopback, which serves them that
+#   recording minutes after it was made. They get no account, no token and no environment.
+# - The nightly run skips both and runs every target against Essential's real servers (verity.json), so a server
+#   change the replay can't show still fails a run.
 #
-# The account's token lives in two environments:
-# - verity-account (required reviewers) for pull requests and manual runs off main: each run waits for approval,
-#   and a workflow edited to leave the environment out gets no token. Review the pull request's Java before
+# The account's token lives in two environments, never as a repository secret:
+# - verity-account (required reviewers) for pull requests and manual runs off main: the record job waits for
+#   approval, and a workflow edited to leave the environment out gets no token. Review the pull request's Java before
 #   approving, since that code runs in the game.
-# - verity-account-main (no reviewers, deployment branches: main only) for pushes to main, the nightly run and
-#   manual runs on main: code that is already merged. A pull request can't use it: its own runs aren't on main, and
-#   a fork's pull_request_target runs use main's copy of this file, which picks verity-account for them.
+# - verity-account-main (no reviewers, deployment branches: main only) for main: code that is already merged. A pull
+#   request can't use it: its own runs aren't on main, and a fork's pull_request_target runs use main's copy of this
+#   file, which picks verity-account for them.
 # Verity itself never hands its credentials to the game (it gets only the Minecraft session it plays with).
 
 on:
@@ -48,7 +52,10 @@ permissions:
 env:
   # Essential build the code compiles against (lib/essential.mock.jar, the Forge 1.8.9 jar; not redistributed here).
   ESSENTIAL_VERSION: "1.5.2"
-  PROFILE: ${{ startsWith(github.event_name, 'pull_request') && 'verity-pr.json' || 'verity.json' }}
+  # Everything but the nightly run replays the record job's session.
+  REPLAY: ${{ github.event_name != 'schedule' }}
+  PROFILE: ${{ github.event_name == 'schedule' && 'verity.json' || 'verity-replay.json' }}
+  CACHE: ${{ github.event_name == 'pull_request_target' && 'read' || 'true' }}
 
 jobs:
   # A fork's code doesn't even build until a reviewer has looked at it.
@@ -87,10 +94,54 @@ jobs:
           echo "$(jq -r .checksum <<<"$meta")  lib/essential.mock.jar" | md5sum -c -
       - name: Build and unit test
         run: mvn -B package
+      - name: Build and unit test cm-replay
+        run: mvn -B package -f tools/cm-replay/pom.xml
       - uses: actions/upload-artifact@v4
         with:
           name: prometheus-jar
           path: target/prometheus-*-essential.jar
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cm-replay
+          path: tools/cm-replay/target/cm-replay.jar
+          if-no-files-found: error
+
+  # The one client that signs in. Its checks run against Essential's real servers.
+  record:
+    name: Record
+    needs: build
+    if: ${{ !cancelled() && needs.build.result == 'success' && github.event_name != 'schedule' }}
+    # Holds the test account's token (see the top of this file). pull_request_target runs have main's ref, so they're
+    # excluded by event, not ref.
+    environment: ${{ github.event_name != 'pull_request_target' && github.ref == 'refs/heads/main' && 'verity-account-main' || 'verity-account' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || '' }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: prometheus-jar
+          path: target
+      - name: Run Verity
+        uses: prometheusreengineering/verity@v1
+        env:
+          VERITY_MSA_REFRESH_TOKEN: ${{ secrets.VERITY_MSA_REFRESH_TOKEN }}
+        with:
+          profile: verity-record.json
+          report-dir: record-report
+          cache: ${{ env.CACHE }}
+      # Filtered in game (verity/Recording.java): no chat, friends, profile or anything else about the account.
+      - name: Upload the recording
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cm-recording
+          path: record-report/targets/*/attachments/recording.jsonl
+          retention-days: 1
           if-no-files-found: error
 
   # Verity's plan mode decides the runners: how many, the Linux/Windows split, which targets each gets, and the
@@ -152,12 +203,13 @@ jobs:
 
   verity:
     name: ${{ matrix.name }}
-    needs: [plan, prepare]
-    # Also when prepare was skipped because every cache exists.
-    if: ${{ !cancelled() && needs.plan.result == 'success' }}
-    # Holds the test account's token (see the top of this file). pull_request_target runs have main's ref, so they're
-    # excluded by event, not ref.
-    environment: ${{ github.event_name != 'pull_request_target' && github.ref == 'refs/heads/main' && 'verity-account-main' || 'verity-account' }}
+    needs: [plan, prepare, record]
+    # Also when prepare was skipped because every cache exists, and on the nightly run, which has no record job.
+    if: >-
+      ${{ !cancelled() && needs.plan.result == 'success'
+      && (github.event_name == 'schedule' || needs.record.result == 'success') }}
+    # Only the nightly run signs in here (every target, against the real servers); the replayed ones need no account.
+    environment: ${{ github.event_name == 'schedule' && 'verity-account-main' || '' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.shards) }}
@@ -172,11 +224,47 @@ jobs:
         with:
           name: prometheus-jar
           path: target
+      - if: env.REPLAY == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - if: env.REPLAY == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: cm-replay
+          path: replay
+      - if: env.REPLAY == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: cm-recording
+          path: replay
+      # Start-Process detaches it on both OSes, so it outlives this step; the runner ends it with the job.
+      - name: Start cm-replay
+        if: env.REPLAY == 'true'
+        shell: pwsh
+        run: |
+          Start-Process -FilePath java -ArgumentList '-jar', 'replay/cm-replay.jar', 'replay/recording.jsonl', '--unanswered', 'replay/unanswered.txt' `
+            -RedirectStandardOutput replay/cm-replay.log -RedirectStandardError replay/cm-replay.err
+          foreach ($i in 1..60) {
+            try { [System.Net.Sockets.TcpClient]::new('127.0.0.1', 47801).Dispose(); Get-Content replay/cm-replay.log; exit 0 } catch { Start-Sleep 1 }
+          }
+          Get-Content replay/cm-replay.log, replay/cm-replay.err -ErrorAction SilentlyContinue
+          Write-Error 'cm-replay did not start'
       - name: Run Verity
         uses: prometheusreengineering/verity@v1
         env:
-          VERITY_MSA_REFRESH_TOKEN: ${{ secrets.VERITY_MSA_REFRESH_TOKEN }}
+          VERITY_MSA_REFRESH_TOKEN: ${{ github.event_name == 'schedule' && secrets.VERITY_MSA_REFRESH_TOKEN || '' }}
         with:
           profile: ${{ env.PROFILE }}
           job: ${{ toJSON(matrix) }}
-          cache: ${{ github.event_name == 'pull_request_target' && 'read' || 'true' }}
+          cache: ${{ env.CACHE }}
+      - name: Requests cm-replay had no recorded answer for
+        if: always() && env.REPLAY == 'true'
+        shell: bash
+        run: |
+          cat replay/cm-replay.err 2>/dev/null || true
+          if [ -s replay/unanswered.txt ]; then
+            { echo "### Requests cm-replay had no recorded answer for"; echo '```'; cat replay/unanswered.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            cat replay/unanswered.txt
+          fi
