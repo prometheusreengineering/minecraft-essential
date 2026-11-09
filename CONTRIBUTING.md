@@ -19,7 +19,9 @@ The use of AI-generated code is allowed so long as
 
 ## Cosmetic Contributions
 
-Have a cosmetic that we don't have in [cosmetics.json](src/main/resources/cosmetics.json)? Send us a pull request!
+Have a cosmetic that we don't have in [cosmetics.json](https://github.com/prometheusreengineering/minecraft-essential-data/blob/main/cosmetics.json)?
+Send a pull request there! (Cosmetics in Essential's store are added automatically every hour; the copy in
+`src/main/resources` is only the fallback bundled into each release.)
 
 Your local cosmetics.json file can be found at
  - Windows: in `%APPDATA%\.minecraft\prometheus\essential`

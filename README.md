@@ -26,8 +26,9 @@ our [loader](https://github.com/prometheusreengineering/prometheus-minecraft/rel
 ### Legacy (Removed) Cosmetics
 
 Some cosmetics previously offered by Essential are no longer available. We have no way of unlocking those cosmetics
-unless we have the [cosmetic ID](src/main/resources/cosmetics.json). If you have more cosmetic IDs that we don't have,
-please consider [contributing](CONTRIBUTING.md)!
+unless we have the [cosmetic ID](https://github.com/prometheusreengineering/minecraft-essential-data/blob/main/cosmetics.json).
+The list picks up every cosmetic Essential's store shows within an hour, and Prometheus downloads it at startup. If you
+have cosmetic IDs that left the store before that, please consider [contributing](CONTRIBUTING.md)!
 
 ## Disclaimer
 

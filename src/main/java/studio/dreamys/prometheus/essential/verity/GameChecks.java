@@ -9,7 +9,6 @@ import gg.essential.network.connectionmanager.ConnectionManager;
 import gg.essential.network.connectionmanager.cosmetics.CosmeticsManager;
 import gg.essential.network.cosmetics.ConversionsKt;
 import gg.essential.network.cosmetics.Cosmetic;
-import gg.essential.util.MagicPathsKt;
 import ing.prometheusreengineer.verity.api.Verity;
 import studio.dreamys.prometheus.essential.serial.EssentialCosmeticsFileData;
 import studio.dreamys.prometheus.essential.serial.EssentialCosmeticsManager;
@@ -49,9 +48,9 @@ public final class GameChecks {
 
     private static final long PHASE_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(Integer.getInteger("prometheus.verity.timeout", 240));
     /**
-     * Every target signs in to Essential through Mojang's session server with the same account, at about the same
-     * time; Mojang rate-limits that (HTTP 429) and Essential retries every 5 s, so on CI the last ones get through
-     * minutes later.
+     * Against the real servers (verity-live.json) every target signs in through Mojang's session server with the same
+     * account at about the same time; Mojang rate-limits that (HTTP 429) and Essential retries every 5 s, so the last
+     * ones get through minutes later. CI replays instead and sets 120 s (verity.json).
      */
     private static final long CONNECT_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(Integer.getInteger("prometheus.verity.connectTimeout", 900));
     /** The server keeps sending cosmetics (legacy ones answer our request) for a while after "loaded". */
@@ -100,7 +99,7 @@ public final class GameChecks {
                 } else if (elapsed > CONNECT_TIMEOUT_NANOS) {
                     String replay = System.getProperty(VerityChecks.REPLAY_PROPERTY);
                     Verity.fail("connected to Essential's servers", "not connected after " + seconds(elapsed) + ". " + (replay != null
-                            ? "Is cm-replay running at " + replay + " (and its join stub at minecraft.api.session.host)?"
+                            ? "Is cm-replay running at " + replay + " (and its Mojang join endpoint at minecraft.api.session.host)?"
                             : "Is the test account signed in (VERITY_MSA_REFRESH_TOKEN), are Essential's servers up,"
                             + " and does the log show Mojang rate-limiting (too many clients signing in at once)?"));
                     done();
@@ -292,23 +291,10 @@ public final class GameChecks {
                 return;
             }
             Verity.pass("game still running " + SURVIVE_SECONDS + "s after the checks");
-            // Last, so Essential's log writer (asynchronous) has caught up with the whole session.
-            if (Boolean.getBoolean("prometheus.verity.record")) attachRecording();
             Verity.finish();
         }, "prometheus-verity");
         t.setDaemon(true);
         t.start();
-    }
-
-    /** Record mode (the CI record job): the filtered session, for cm-replay to serve to the other targets. */
-    private static void attachRecording() {
-        check("session recorded for replay", () -> {
-            Path log = Recording.newestLog(MagicPathsKt.getGlobalEssentialDirectory().resolve("infra-logs"));
-            if (log == null) throw new AssertionError("Essential wrote no infra-logs/*.log");
-            byte[] recording = Recording.record(log);
-            Verity.attach(Recording.FILE, recording);
-            Verity.log("Recorded " + recording.length + " bytes of Essential's session from " + log.getFileName());
-        });
     }
 
     // Essential's State types live in elementa, which isn't on our compile classpath, so they're read reflectively.

@@ -34,8 +34,9 @@ public class EssentialCosmeticsFileData {
     private static final @NotNull Logger logger = Logger.getLogger("Prometheus - ECFD");
     private static final Gson GSON = new Gson();
     private static final @NotNull Type SET_TYPE = new TypeToken<LinkedHashSet<String>>() {}.getType();
+    // Kept up to date hourly with every id seen in Essential's store (minecraft-essential-data's record workflow).
     static final @NotNull URI DOWNLOAD_URL = URI.create(
-            "https://raw.githubusercontent.com/prometheusreengineering/minecraft-essential/refs/heads/main/src/main/resources/cosmetics.json");
+            "https://raw.githubusercontent.com/prometheusreengineering/minecraft-essential-data/refs/heads/main/cosmetics.json");
     private static final int DOWNLOAD_TIMEOUT_MS = 10_000;
 
     private final @NotNull Path file;

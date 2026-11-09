@@ -1,0 +1,16 @@
+{
+  "name": "prometheus-essential-live",
+  "description": "For local runs only, not CI: Prometheus with Essential on each Minecraft version and loader it ships for, against Essential's real servers, signed in with your account (verity account login). Mojang rate-limits sign-ins per account, so run few targets at once (-o, -p). Set the Essential version to the latest release.",
+  "targets": [
+    { "select": { "modrinth": ["essential"] } }
+  ],
+  "mods": [
+    { "path": "target/prometheus-*-essential.jar" },
+    { "modrinth": "essential", "version": "1.5.2" }
+  ],
+  "account": { "type": "msa" },
+  "jvm": { "memoryMb": 2048 },
+  "display": { "mode": "headless" },
+  "run": { "onlyTargetsWithAllMods": true },
+  "test": { "startupTimeoutSec": 900, "timeoutSec": 1500 }
+}

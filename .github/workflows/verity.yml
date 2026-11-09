@@ -1,25 +1,13 @@
 name: Verity
 
-# Builds the patch, then boots it next to the Essential build pinned in the profile with Verity, headless, on Linux
-# and Windows, and checks in game that the patch works (verity/VerityChecks.java, verity/GameChecks.java).
+# Builds the patch, then boots it with the latest Essential release on every Minecraft version and loader Essential
+# ships for, headless on Linux and Windows, with Verity, and checks in game that the patch works
+# (verity/VerityChecks.java, verity/GameChecks.java).
 #
-# Essential talks to its servers only after a Mojang sign-in, which Mojang rate-limits per account, so the targets
-# don't all sign in:
-# - The record job runs one real client with the test account (verity-record.json). Besides every check, it attaches
-#   its Essential session, filtered to the cosmetics side, as recording.jsonl.
-# - The test jobs run every target (verity-replay.json) against tools/cm-replay on loopback, which serves them that
-#   recording minutes after it was made. They get no account, no token and no environment.
-# - The nightly run skips both and runs every target against Essential's real servers (verity.json), so a server
-#   change the replay can't show still fails a run.
-#
-# The account's token lives in two environments, never as a repository secret:
-# - verity-account (required reviewers) for pull requests and manual runs off main: the record job waits for
-#   approval, and a workflow edited to leave the environment out gets no token. Review the pull request's Java before
-#   approving, since that code runs in the game.
-# - verity-account-main (no reviewers, deployment branches: main only) for main: code that is already merged. A pull
-#   request can't use it: its own runs aren't on main, and a fork's pull_request_target runs use main's copy of this
-#   file, which picks verity-account for them.
-# Verity itself never hands its credentials to the game (it gets only the Minecraft session it plays with).
+# No client signs in. Each test job serves Essential's side from cm-replay on loopback: a session recorded every hour
+# by minecraft-essential-data (plain Essential, signed in there, on main only), cosmetics side only and with the
+# account's own data replaced. So this workflow needs no account, no token and no environment, and pull requests,
+# forks included, need no approval beyond GitHub's own for first-time contributors.
 
 on:
   push:
@@ -34,118 +22,51 @@ on:
       - flake.lock
       - .envrc
       - .run/**
-  # Pull requests from branches of this repository.
+      - verity-live.json
   pull_request:
     paths-ignore: *unaffected
-  # Pull requests from forks, which never get secrets through pull_request. pull_request_target runs this file as it
-  # is on main (so a fork can't edit it), on the pull request's code, once a reviewer approves. Those runs count as
-  # main, so they only restore caches: a save would let the pull request's code into the caches main uses.
-  pull_request_target:
-    paths-ignore: *unaffected
-  schedule:
-    - cron: "17 3 * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  # Essential build the code compiles against (lib/essential.mock.jar, the Forge 1.8.9 jar; not redistributed here).
-  ESSENTIAL_VERSION: "1.5.2"
-  # Everything but the nightly run replays the record job's session.
-  REPLAY: ${{ github.event_name != 'schedule' }}
-  PROFILE: ${{ github.event_name == 'schedule' && 'verity.json' || 'verity-replay.json' }}
-  CACHE: ${{ github.event_name == 'pull_request_target' && 'read' || 'true' }}
+  # recording.jsonl, cm-replay.jar and manifest.json, replaced hourly.
+  SNAPSHOT: https://raw.githubusercontent.com/prometheusreengineering/minecraft-essential-data/snapshot
 
 jobs:
-  # A fork's code doesn't even build until a reviewer has looked at it.
-  approve:
-    name: Approve fork
-    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
-    runs-on: ubuntu-latest
-    environment: verity-account
-    steps:
-      - run: echo "Approved; building ${{ github.event.pull_request.head.repo.full_name }}@${{ github.event.pull_request.head.sha }}."
-
   build:
     name: Build
-    needs: approve
-    # Each pull request runs once: its own repository's through pull_request, a fork's through pull_request_target.
-    if: >-
-      !cancelled() && (
-        (github.event_name == 'pull_request_target' && needs.approve.result == 'success')
-        || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
-        || (github.event_name != 'pull_request' && github.event_name != 'pull_request_target'))
     runs-on: ubuntu-latest
+    outputs:
+      essential: ${{ steps.essential.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || '' }}
           persist-credentials: false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
-          cache: ${{ github.event_name != 'pull_request_target' && 'maven' || '' }}
-      - name: Fetch Essential ${{ env.ESSENTIAL_VERSION }} (compile-time only)
+          cache: maven
+      # The latest release, for compiling (MixinTargetsTest checks every target against it) and for every test job.
+      - name: Fetch the latest Essential (compile-time only)
+        id: essential
         run: |
-          meta="$(curl -fsSL "https://api.essential.gg/mods/v1/essential:essential/versions/$ESSENTIAL_VERSION/platforms/forge_1-8-9/download")"
-          curl -fsSL "$(jq -r .url <<<"$meta")" -o lib/essential.mock.jar
+          version="$(curl -fsSL --retry 3 'https://api.modrinth.com/v2/project/essential/version' \
+            | jq -r '[.[] | select(.version_type == "release")] | sort_by(.date_published) | last | .version_number')"
+          [ -n "$version" ] && [ "$version" != null ] || { echo "::error::No Essential release on Modrinth."; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          meta="$(curl -fsSL --retry 3 "https://api.essential.gg/mods/v1/essential:essential/versions/$version/platforms/forge_1-8-9/download")"
+          curl -fsSL --retry 3 "$(jq -r .url <<<"$meta")" -o lib/essential.mock.jar
           echo "$(jq -r .checksum <<<"$meta")  lib/essential.mock.jar" | md5sum -c -
+          echo "Essential $version" >> "$GITHUB_STEP_SUMMARY"
       - name: Build and unit test
         run: mvn -B package
-      - name: Build and unit test cm-replay
-        run: mvn -B package -f tools/cm-replay/pom.xml
       - uses: actions/upload-artifact@v4
         with:
           name: prometheus-jar
           path: target/prometheus-*-essential.jar
-          if-no-files-found: error
-      - uses: actions/upload-artifact@v4
-        with:
-          name: cm-replay
-          path: tools/cm-replay/target/cm-replay.jar
-          if-no-files-found: error
-
-  # The one client that signs in. Its checks run against Essential's real servers.
-  record:
-    name: Record
-    needs: build
-    if: ${{ !cancelled() && needs.build.result == 'success' && github.event_name != 'schedule' }}
-    # Holds the test account's token (see the top of this file). pull_request_target runs have main's ref, so they're
-    # excluded by event, not ref.
-    environment: ${{ github.event_name != 'pull_request_target' && github.ref == 'refs/heads/main' && 'verity-account-main' || 'verity-account' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || '' }}
-          persist-credentials: false
-      - uses: actions/download-artifact@v4
-        with:
-          name: prometheus-jar
-          path: target
-      - name: Run Verity
-        uses: prometheusreengineering/verity@v1
-        env:
-          VERITY_MSA_REFRESH_TOKEN: ${{ secrets.VERITY_MSA_REFRESH_TOKEN }}
-        with:
-          profile: verity-record.json
-          report-dir: record-report
-          cache: ${{ env.CACHE }}
-      # Filtered in game (verity/Recording.java): no chat, friends, profile or anything else about the account. Copied
-      # out first, since an upload keeps whatever path follows a wildcard.
-      - name: Collect the recording
-        if: ${{ !cancelled() }}
-        run: cp record-report/targets/*/attachments/recording.jsonl recording.jsonl
-      - name: Upload the recording
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: cm-recording
-          path: recording.jsonl
-          retention-days: 1
           if-no-files-found: error
 
   # Verity's plan mode decides the runners: how many, the Linux/Windows split, which targets each gets, and the
@@ -153,7 +74,6 @@ jobs:
   plan:
     name: Plan
     needs: build
-    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     # Only planning reads earlier runs' timings and the cache list. A job's permissions replace the workflow's.
     permissions:
@@ -166,25 +86,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || '' }}
           persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           name: prometheus-jar
           path: target
+      # Exact, so targets without this build are skipped (onlyTargetsWithAllMods), as Prometheus needs a recent one.
+      - name: Use Essential ${{ needs.build.outputs.essential }}
+        env:
+          ESSENTIAL: ${{ needs.build.outputs.essential }}
+        run: |
+          jq --arg v "$ESSENTIAL" '(.mods[] | select(.modrinth == "essential")).version = $v' verity.json > profile.json
+          mv profile.json verity.json
       - id: plan
         uses: prometheusreengineering/verity@v1
         with:
           mode: plan
-          profile: ${{ env.PROFILE }}
+          profile: verity.json
           os: linux,windows
 
-  # Fills the caches of each cache group that has none yet (about once a week). Never for forks, whose saves would
-  # land in main's caches.
+  # Fills the caches of each cache group that has none yet (about once a week, and after each Essential release).
   prepare:
     name: ${{ matrix.name }}
-    needs: plan
-    if: ${{ !cancelled() && needs.plan.outputs.has-prepare == 'true' && github.event_name != 'pull_request_target' }}
+    needs: [build, plan]
+    if: ${{ needs.plan.outputs.has-prepare == 'true' }}
     # The test jobs can still download what they need themselves.
     continue-on-error: true
     strategy:
@@ -200,20 +125,23 @@ jobs:
         with:
           name: prometheus-jar
           path: target
+      - name: Use Essential ${{ needs.build.outputs.essential }}
+        shell: bash
+        env:
+          ESSENTIAL: ${{ needs.build.outputs.essential }}
+        run: |
+          jq --arg v "$ESSENTIAL" '(.mods[] | select(.modrinth == "essential")).version = $v' verity.json > profile.json
+          mv profile.json verity.json
       - uses: prometheusreengineering/verity@v1
         with:
-          profile: ${{ env.PROFILE }}
+          profile: verity.json
           job: ${{ toJSON(matrix) }}
 
   verity:
     name: ${{ matrix.name }}
-    needs: [plan, prepare, record]
-    # Also when prepare was skipped because every cache exists, and on the nightly run, which has no record job.
-    if: >-
-      ${{ !cancelled() && needs.plan.result == 'success'
-      && (github.event_name == 'schedule' || needs.record.result == 'success') }}
-    # Only the nightly run signs in here (every target, against the real servers); the replayed ones need no account.
-    environment: ${{ github.event_name == 'schedule' && 'verity-account-main' || '' }}
+    needs: [build, plan, prepare]
+    # Also when prepare was skipped because every cache exists.
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.shards) }}
@@ -222,32 +150,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || '' }}
           persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           name: prometheus-jar
           path: target
-      - if: env.REPLAY == 'true'
-        uses: actions/setup-java@v4
+      - name: Use Essential ${{ needs.build.outputs.essential }}
+        shell: bash
+        env:
+          ESSENTIAL: ${{ needs.build.outputs.essential }}
+        run: |
+          jq --arg v "$ESSENTIAL" '(.mods[] | select(.modrinth == "essential")).version = $v' verity.json > profile.json
+          mv profile.json verity.json
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
-      - if: env.REPLAY == 'true'
-        uses: actions/download-artifact@v4
-        with:
-          name: cm-replay
-          path: replay
-      - if: env.REPLAY == 'true'
-        uses: actions/download-artifact@v4
-        with:
-          name: cm-recording
-          path: replay
+      # A stale snapshot still tests the patch, so a broken hourly job warns instead of failing every pull request.
+      - name: Fetch the recorded session
+        shell: bash
+        run: |
+          mkdir -p replay
+          for f in recording.jsonl cm-replay.jar manifest.json; do
+            curl -fsSL --retry 5 --retry-all-errors "$SNAPSHOT/$f" -o "replay/$f"
+          done
+          cat replay/manifest.json
+          recorded="$(jq -r .recordedAt replay/manifest.json)"
+          age=$(( $(date -u +%s) - $(date -u -d "$recorded" +%s) ))
+          if [ "$age" -gt 10800 ]; then
+            echo "::warning::The recorded session is $((age / 3600)) h old ($recorded). Check minecraft-essential-data's Record workflow."
+          fi
+          echo "Replaying the session recorded $recorded with Essential $(jq -r .essential replay/manifest.json)." >> "$GITHUB_STEP_SUMMARY"
       # It has to outlive this step; the runner ends it with the job. On Windows the runner also ends every process a
       # step started (a job object) when the step ends, so there it's started through WMI, outside that job. A WMI
       # process gets the machine's environment, not the step's, hence java's full path.
       - name: Start cm-replay
-        if: env.REPLAY == 'true'
         shell: pwsh
         run: |
           if ($IsWindows) {
@@ -265,21 +202,17 @@ jobs:
           Get-Content replay/cm-replay.log, replay/cm-replay.err -ErrorAction SilentlyContinue
           Write-Error 'cm-replay did not start'
       - name: Check cm-replay outlived its step
-        if: env.REPLAY == 'true'
         shell: pwsh
         run: |
           try { [System.Net.Sockets.TcpClient]::new('127.0.0.1', 47801).Dispose() }
           catch { Get-Content replay/cm-replay.log, replay/cm-replay.err -ErrorAction SilentlyContinue; Write-Error 'cm-replay stopped with its step'; exit 1 }
       - name: Run Verity
         uses: prometheusreengineering/verity@v1
-        env:
-          VERITY_MSA_REFRESH_TOKEN: ${{ github.event_name == 'schedule' && secrets.VERITY_MSA_REFRESH_TOKEN || '' }}
         with:
-          profile: ${{ env.PROFILE }}
+          profile: verity.json
           job: ${{ toJSON(matrix) }}
-          cache: ${{ env.CACHE }}
       - name: Requests cm-replay had no recorded answer for
-        if: always() && env.REPLAY == 'true'
+        if: always()
         shell: bash
         run: |
           cat replay/cm-replay.err 2>/dev/null || true
