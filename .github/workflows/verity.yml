@@ -243,18 +243,33 @@ jobs:
         with:
           name: cm-recording
           path: replay
-      # Start-Process detaches it on both OSes, so it outlives this step; the runner ends it with the job.
+      # It has to outlive this step; the runner ends it with the job. On Windows the runner also ends every process a
+      # step started (a job object) when the step ends, so there it's started through WMI, outside that job. A WMI
+      # process gets the machine's environment, not the step's, hence java's full path.
       - name: Start cm-replay
         if: env.REPLAY == 'true'
         shell: pwsh
         run: |
-          Start-Process -FilePath java -ArgumentList '-jar', 'replay/cm-replay.jar', 'replay/recording.jsonl', '--unanswered', 'replay/unanswered.txt' `
-            -RedirectStandardOutput replay/cm-replay.log -RedirectStandardError replay/cm-replay.err
+          if ($IsWindows) {
+            $java = Join-Path $env:JAVA_HOME 'bin\java.exe'
+            $cmd = "cmd /c `"`"$java`" -jar replay\cm-replay.jar replay\recording.jsonl --unanswered replay\unanswered.txt > replay\cm-replay.log 2> replay\cm-replay.err`""
+            $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cmd; CurrentDirectory = $PWD.Path }
+            if ($r.ReturnValue -ne 0) { Write-Error "Win32_Process.Create returned $($r.ReturnValue)"; exit 1 }
+          } else {
+            Start-Process -FilePath java -ArgumentList '-jar', 'replay/cm-replay.jar', 'replay/recording.jsonl', '--unanswered', 'replay/unanswered.txt' `
+              -RedirectStandardOutput replay/cm-replay.log -RedirectStandardError replay/cm-replay.err
+          }
           foreach ($i in 1..60) {
             try { [System.Net.Sockets.TcpClient]::new('127.0.0.1', 47801).Dispose(); Get-Content replay/cm-replay.log; exit 0 } catch { Start-Sleep 1 }
           }
           Get-Content replay/cm-replay.log, replay/cm-replay.err -ErrorAction SilentlyContinue
           Write-Error 'cm-replay did not start'
+      - name: Check cm-replay outlived its step
+        if: env.REPLAY == 'true'
+        shell: pwsh
+        run: |
+          try { [System.Net.Sockets.TcpClient]::new('127.0.0.1', 47801).Dispose() }
+          catch { Get-Content replay/cm-replay.log, replay/cm-replay.err -ErrorAction SilentlyContinue; Write-Error 'cm-replay stopped with its step'; exit 1 }
       - name: Run Verity
         uses: prometheusreengineering/verity@v1
         env:
