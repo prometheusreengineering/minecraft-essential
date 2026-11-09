@@ -134,13 +134,17 @@ jobs:
           profile: verity-record.json
           report-dir: record-report
           cache: ${{ env.CACHE }}
-      # Filtered in game (verity/Recording.java): no chat, friends, profile or anything else about the account.
+      # Filtered in game (verity/Recording.java): no chat, friends, profile or anything else about the account. Copied
+      # out first, since an upload keeps whatever path follows a wildcard.
+      - name: Collect the recording
+        if: ${{ !cancelled() }}
+        run: cp record-report/targets/*/attachments/recording.jsonl recording.jsonl
       - name: Upload the recording
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: cm-recording
-          path: record-report/targets/*/attachments/recording.jsonl
+          path: recording.jsonl
           retention-days: 1
           if-no-files-found: error
 
