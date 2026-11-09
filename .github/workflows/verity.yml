@@ -1,13 +1,21 @@
 name: Verity
 
-# Builds the patch, then boots it next to the Essential build pinned in verity.json (each Minecraft version and
-# loader that build ships for on Modrinth) with Verity, headless, on Linux and Windows, signed in with the test
-# account so the in-game checks reach Essential's servers. See verity/VerityChecks.java and verity/GameChecks.java.
+# Builds the patch, then boots it next to the Essential build pinned in the profile with Verity, headless, on Linux
+# and Windows, signed in with the test account so the in-game checks reach Essential's servers. See
+# verity/VerityChecks.java and verity/GameChecks.java.
 #
-# The account's token lives in the verity-account environment, whose required reviewers approve every run that
-# uses it: a workflow edited to leave the environment out gets no token, and one that keeps it waits for approval.
-# Review the pull request's Java too before approving, since that code runs in the game. Verity itself never hands
-# its credentials to the game (it gets only the Minecraft session it plays with).
+# Every target signs in to Essential with the one account, which Mojang rate-limits, so pull requests run the six
+# targets of verity-pr.json (minutes), and main, the nightly run and manual runs all of verity.json (each Minecraft
+# version and loader the Essential build ships for on Modrinth; the last targets connect after up to 15 minutes).
+#
+# The account's token lives in two environments:
+# - verity-account (required reviewers) for pull requests and manual runs off main: each run waits for approval,
+#   and a workflow edited to leave the environment out gets no token. Review the pull request's Java before
+#   approving, since that code runs in the game.
+# - verity-account-main (no reviewers, deployment branches: main only) for pushes to main, the nightly run and
+#   manual runs on main: code that is already merged. A pull request can't use it: its own runs aren't on main, and
+#   a fork's pull_request_target runs use main's copy of this file, which picks verity-account for them.
+# Verity itself never hands its credentials to the game (it gets only the Minecraft session it plays with).
 
 on:
   push:
@@ -30,6 +38,8 @@ on:
   # main, so they only restore caches: a save would let the pull request's code into the caches main uses.
   pull_request_target:
     paths-ignore: *unaffected
+  schedule:
+    - cron: "17 3 * * *"
   workflow_dispatch:
 
 permissions:
@@ -38,6 +48,7 @@ permissions:
 env:
   # Essential build the code compiles against (lib/essential.mock.jar, the Forge 1.8.9 jar; not redistributed here).
   ESSENTIAL_VERSION: "1.5.2"
+  PROFILE: ${{ startsWith(github.event_name, 'pull_request') && 'verity-pr.json' || 'verity.json' }}
 
 jobs:
   # A fork's code doesn't even build until a reviewer has looked at it.
@@ -110,7 +121,7 @@ jobs:
         uses: prometheusreengineering/verity@v1
         with:
           mode: plan
-          profile: verity.json
+          profile: ${{ env.PROFILE }}
           os: linux,windows
 
   # Fills the caches of each cache group that has none yet (about once a week). Never for forks, whose saves would
@@ -136,7 +147,7 @@ jobs:
           path: target
       - uses: prometheusreengineering/verity@v1
         with:
-          profile: verity.json
+          profile: ${{ env.PROFILE }}
           job: ${{ toJSON(matrix) }}
 
   verity:
@@ -144,8 +155,9 @@ jobs:
     needs: [plan, prepare]
     # Also when prepare was skipped because every cache exists.
     if: ${{ !cancelled() && needs.plan.result == 'success' }}
-    # Holds the test account's token; waits for a reviewer.
-    environment: verity-account
+    # Holds the test account's token (see the top of this file). pull_request_target runs have main's ref, so they're
+    # excluded by event, not ref.
+    environment: ${{ github.event_name != 'pull_request_target' && github.ref == 'refs/heads/main' && 'verity-account-main' || 'verity-account' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.shards) }}
@@ -165,6 +177,6 @@ jobs:
         env:
           VERITY_MSA_REFRESH_TOKEN: ${{ secrets.VERITY_MSA_REFRESH_TOKEN }}
         with:
-          profile: verity.json
+          profile: ${{ env.PROFILE }}
           job: ${{ toJSON(matrix) }}
           cache: ${{ github.event_name == 'pull_request_target' && 'read' || 'true' }}
