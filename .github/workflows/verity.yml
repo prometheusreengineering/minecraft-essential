@@ -1,7 +1,13 @@
 name: Verity
 
 # Builds the patch, then boots it next to the Essential build pinned in verity.json (each Minecraft version and
-# loader that build ships for on Modrinth) with Verity, headless, on Linux and Windows. See verity/VerityChecks.java.
+# loader that build ships for on Modrinth) with Verity, headless, on Linux and Windows, signed in with the test
+# account so the in-game checks reach Essential's servers. See verity/VerityChecks.java and verity/GameChecks.java.
+#
+# The account's token lives in the verity-account environment, whose required reviewers approve every run that
+# uses it: a workflow edited to leave the environment out gets no token, and one that keeps it waits for approval.
+# Review the pull request's Java too before approving, since that code runs in the game. Verity itself never hands
+# its credentials to the game (it gets only the Minecraft session it plays with).
 
 on:
   push:
@@ -16,7 +22,13 @@ on:
       - flake.lock
       - .envrc
       - .run/**
+  # Pull requests from branches of this repository.
   pull_request:
+    paths-ignore: *unaffected
+  # Pull requests from forks, which never get secrets through pull_request. pull_request_target runs this file as it
+  # is on main (so a fork can't edit it), on the pull request's code, once a reviewer approves. Those runs count as
+  # main, so they only restore caches: a save would let the pull request's code into the caches main uses.
+  pull_request_target:
     paths-ignore: *unaffected
   workflow_dispatch:
 
@@ -28,22 +40,41 @@ env:
   ESSENTIAL_VERSION: "1.5.2"
 
 jobs:
+  # A fork's code doesn't even build until a reviewer has looked at it.
+  approve:
+    name: Approve fork
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    environment: verity-account
+    steps:
+      - run: echo "Approved; building ${{ github.event.pull_request.head.repo.full_name }}@${{ github.event.pull_request.head.sha }}."
+
   build:
     name: Build
+    needs: approve
+    # Each pull request runs once: its own repository's through pull_request, a fork's through pull_request_target.
+    if: >-
+      !cancelled() && (
+        (github.event_name == 'pull_request_target' && needs.approve.result == 'success')
+        || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+        || (github.event_name != 'pull_request' && github.event_name != 'pull_request_target'))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || '' }}
+          persist-credentials: false
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
-          cache: maven
+          cache: ${{ github.event_name != 'pull_request_target' && 'maven' || '' }}
       - name: Fetch Essential ${{ env.ESSENTIAL_VERSION }} (compile-time only)
         run: |
           meta="$(curl -fsSL "https://api.essential.gg/mods/v1/essential:essential/versions/$ESSENTIAL_VERSION/platforms/forge_1-8-9/download")"
           curl -fsSL "$(jq -r .url <<<"$meta")" -o lib/essential.mock.jar
           echo "$(jq -r .checksum <<<"$meta")  lib/essential.mock.jar" | md5sum -c -
-      - name: Build
+      - name: Build and unit test
         run: mvn -B package
       - uses: actions/upload-artifact@v4
         with:
@@ -56,6 +87,7 @@ jobs:
   plan:
     name: Plan
     needs: build
+    if: ${{ !cancelled() && needs.build.result == 'success' }}
     runs-on: ubuntu-latest
     # Only planning reads earlier runs' timings and the cache list. A job's permissions replace the workflow's.
     permissions:
@@ -67,6 +99,9 @@ jobs:
       has-prepare: ${{ steps.plan.outputs.has-prepare }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || '' }}
+          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           name: prometheus-jar
@@ -78,11 +113,12 @@ jobs:
           profile: verity.json
           os: linux,windows
 
-  # Fills the caches of each cache group that has none yet (about once a week).
+  # Fills the caches of each cache group that has none yet (about once a week). Never for forks, whose saves would
+  # land in main's caches.
   prepare:
     name: ${{ matrix.name }}
     needs: plan
-    if: ${{ !cancelled() && needs.plan.outputs.has-prepare == 'true' }}
+    if: ${{ !cancelled() && needs.plan.outputs.has-prepare == 'true' && github.event_name != 'pull_request_target' }}
     # The test jobs can still download what they need themselves.
     continue-on-error: true
     strategy:
@@ -92,6 +128,8 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           name: prometheus-jar
@@ -106,6 +144,8 @@ jobs:
     needs: [plan, prepare]
     # Also when prepare was skipped because every cache exists.
     if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    # Holds the test account's token; waits for a reviewer.
+    environment: verity-account
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.shards) }}
@@ -113,12 +153,18 @@ jobs:
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request_target' && github.event.pull_request.head.sha || '' }}
+          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           name: prometheus-jar
           path: target
       - name: Run Verity
         uses: prometheusreengineering/verity@v1
+        env:
+          VERITY_MSA_REFRESH_TOKEN: ${{ secrets.VERITY_MSA_REFRESH_TOKEN }}
         with:
           profile: verity.json
           job: ${{ toJSON(matrix) }}
+          cache: ${{ github.event_name == 'pull_request_target' && 'read' || 'true' }}
