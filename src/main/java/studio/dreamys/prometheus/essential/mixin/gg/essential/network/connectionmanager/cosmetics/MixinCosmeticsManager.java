@@ -17,6 +17,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import studio.dreamys.prometheus.essential.serial.EssentialCosmeticsFileData;
+import studio.dreamys.prometheus.essential.verity.GameChecks;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -58,6 +59,8 @@ public abstract class MixinCosmeticsManager {
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(ClientTickEvent tickEvent, CallbackInfo ci) {
         flushPendingUnlocks();
+        // The in-game Verity checks; never set outside Verity.
+        if (GameChecks.active) GameChecks.tick((CosmeticsManager) (Object) this, connectionManager);
         if (!connectionManager.isOpen()) return;
         // The GitHub list is merged in the background and may also land after we connected.
         boolean downloadedNew = EssentialCosmeticsFileData.consumeUnrequested();

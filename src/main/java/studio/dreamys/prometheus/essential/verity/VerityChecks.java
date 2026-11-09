@@ -58,7 +58,8 @@ public final class VerityChecks {
             }
         });
         checkMixins();
-        finishLater();
+        // Offline (no Microsoft account, e.g. pull requests from forks) Essential can't connect, so only the above run.
+        GameChecks.start(!"false".equals(System.getProperty("prometheus.verity.online")));
     }
 
     private static void checkMixins() {
@@ -164,22 +165,4 @@ public final class VerityChecks {
         return false;
     }
 
-    /** Keeps the game running a little longer, so crashes right after Essential's init still fail the run. */
-    private static void finishLater() {
-        final int delay = Integer.getInteger("prometheus.verity.delay", 30);
-        Thread t = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Thread.sleep(delay * 1000L);
-                } catch (InterruptedException e) {
-                    return;
-                }
-                Verity.pass("game still running " + delay + "s after Essential#init");
-                Verity.finish();
-            }
-        }, "prometheus-verity");
-        t.setDaemon(true);
-        t.start();
-    }
 }
